@@ -193,7 +193,9 @@ def get_emails(account_attr):
             if broken and debug:
                 print 'Broken encoding. Skip message.'
             else:
-                s[num] = dict(zip(msg_data.keys(), msg_data.values()))
+                #переводим все ключи в lowcase
+                msg_low = dict((k.lower(), v) for k, v in msg_data.iteritems())
+                s[num] = dict(zip(msg_low.keys(), msg_low.values()))
 
     
     M.close()
@@ -202,7 +204,7 @@ def get_emails(account_attr):
     return s,status
 
 
-def get_messages():
+def get_email_messages():
     
     accounts = []
     
@@ -240,11 +242,23 @@ def get_messages():
                     #print email_data['From']
                     #print email_data['Subject']
                     
+                    
                     source = {'uuid':account.uuid,
                               'source_type':account.__tablename__,
                               'id':account.id} 
                     msg = rwObjects.Message()
-                    msg_status = msg.create_email(session,source,json.dumps(email_data))
+                    msg_status = "OK"
+                    
+                    if msg.is_exist_msg(session,email_data['message-id']):
+                        print email_data['message-id']
+                        print "Сообщение уже существует. Не добавляем."                    
+                        print "----------------------------------------------"
+                        
+                    else:
+                                                
+                        msg_status = msg.create_email(session,source,
+                                    json.dumps(email_data),email_data['message-id'])
+                    
                     if msg_status[0][0] == 'OK':
                         print msg_status[0][1]
                         print msg_status[1][1]
@@ -263,24 +277,7 @@ def get_messages():
     return status
 
 def test():
-    """
-    acc = rwObjects.Account()
-    session = rwObjects.Session()
-
-    acc.acc_type = 'email'
-    acc.dirs = "{'inbox':'INBOX','sent':'[Gmail]/&BB4EQgQ,BEAEMAQyBDsENQQ9BD0ESwQ1-'}"
-    acc.last_check = '2015-07-24 00:00:00'
-    acc.login = 'sergey@reshim.com'
-    acc.password = 'OO00zZOK2'
-    acc.port = '993'
-    acc.server = "imap.gmail.com"
-    acc.employee_id = 1
-    
-    session.add(acc)
-    session.commit()
-    session.close()
-    """
-    print get_messages()
+    print get_email_messages()
 
     
 

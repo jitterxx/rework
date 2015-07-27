@@ -22,6 +22,16 @@ Base = sqlalchemy.ext.declarative.declarative_base()
 Engine = sqlalchemy.create_engine('mysql://rework:HtdjhR123@localhost/rework?charset=utf8')
 Session = sqlalchemy.orm.sessionmaker(bind=Engine)    
 
+"""
+Constants
+"""
+#Каналы взаимодействия reWork с внешним миром
+rwChannel_type = ["email","facebook","phone","vk    "]
+
+"""
+reWork classes
+"""
+
 def create_tables():
     #Пересоздание таблиц
     Base.metadata.create_all(Engine)
@@ -64,7 +74,7 @@ class Account(Base):
     
     id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
     uuid = sqlalchemy.Column(sqlalchemy.String(50),default=uuid.uuid1())
-    acc_type = sqlalchemy.Column(sqlalchemy.String(256))
+    acc_type = Column(sqlalchemy.String(256),default=rwChannel_type[0])
     server = sqlalchemy.Column(sqlalchemy.String(256))
     port = sqlalchemy.Column(sqlalchemy.String(6))
     login = sqlalchemy.Column(sqlalchemy.String(50))
@@ -93,14 +103,15 @@ class Contact(Base):
     channels = relationship("Channel", backref = "contacts")
     client_id = Column(Integer, ForeignKey('clients.id'))
     
+
 class Channel(Base):
 
     __tablename__ = 'channels'
     
-    id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
-    uuid = sqlalchemy.Column(sqlalchemy.String(50),default=uuid.uuid1())
-    channel_type = sqlalchemy.Column(sqlalchemy.String(256))
-    address = sqlalchemy.Column(sqlalchemy.String(256))
+    id = Column(sqlalchemy.Integer, primary_key=True)
+    uuid = Column(sqlalchemy.String(50),default=uuid.uuid1())
+    channel_type = Column(sqlalchemy.String(256),default=rwChannel_type[0])
+    address = Column(sqlalchemy.String(256))
     contact_id = Column(Integer, ForeignKey('contacts.id'))
 
 class Reference(Base):
@@ -196,24 +207,48 @@ class Message(Base):
     id = Column(sqlalchemy.Integer, primary_key=True)
     uuid = Column(sqlalchemy.String(50),default=uuid.uuid1())
     channel_type = Column(sqlalchemy.String(256))
+    message_id = Column(sqlalchemy.String(256))
+    viewed = Column(Integer,default=0)
     data = Column(sqlalchemy.TEXT())
     
-    def create_email(self,session,source,email):
-        r_status = ["",""]
-        t_status = ["",""]
+    def is_exist_msg(self,session,msg_id):    
+        """
+        Проверяет есть ли в базе сообщение с таким же идентификатором.
+        Если есть, возвращает True, если нет False.
+        """
+        check = False
+        try:        
+            session.query(Message).filter(Message.message_id == msg_id).one()
+        except:
+            print "Сообщений не найдено."
+        else:
+            print "Сообщение найдено."
+            check = True
+        
+        return check
+    
+    def create_email(self,session,source,email,msg_id):
         """
         Функция создания объекта Message типа Email.
-        На вход получает dict - {Заголовок поля: значение поля,...}. Из 
+        На вход получает:
+        session -- текущйи объект Session для работы с БД.
+        Source -- параметры объекта Account через который было получено
+        сообщение.
+        Email - сообщение в виде dict {Заголовок поля: значение поля,...}. Из 
         преобразованного в словарь email.
         
-        1. Заполняет свойства объекта Message типа email. Данные сообщения
-            пишуться в json формат для облегчения хранения.
-        2. Создает Reference событие создания объекта(link = 1)
+        Выполняет действия:
+        -- Заполняет свойство data объекта Message типа email. Данные сообщения
+            пишуться в json форматe.
+        -- Создает объект Reference - событие создания объекта(link = 1)
 
         """
+        r_status = ["",""]
+        t_status = ["",""]
         
-        self.channel_type = 'email'
+        self.channel_type = rwChannel_type[0]
         self.data = json.dumps(email)
+        self.message_id = msg_id
         
         #Записываем объект
         session.add(self)
@@ -302,8 +337,6 @@ def test():
         finally:
             session.close()
         
-
-#test()
 
 
 
