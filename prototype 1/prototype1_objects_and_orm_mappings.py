@@ -13,6 +13,9 @@ from sqlalchemy import Column, Integer
 import uuid
 import datetime
 import json
+import base64
+from sklearn.externals import joblib
+
 import sys
 reload(sys)
 sys.setdefaultencoding("utf-8")
@@ -209,7 +212,13 @@ class Message(Base):
     channel_type = Column(sqlalchemy.String(256))
     message_id = Column(sqlalchemy.String(256))
     viewed = Column(Integer,default=0)
+    category = Column(Integer,default=0)
     data = Column(sqlalchemy.TEXT())
+    
+    def __init__(self):    
+        self.uuid = uuid.uuid1()
+        self.category = 0
+        self.viewed = 0
     
     def is_exist_msg(self,session,msg_id):    
         """
@@ -247,12 +256,25 @@ class Message(Base):
         t_status = ["",""]
         
         self.channel_type = rwChannel_type[0]
+        #self.data = json.dumps(email)
+        #print type(email)       
+        #self.data = str(email)
+        
+        
+        for k in email.keys():
+            email[k] = base64.b64encode(email[k])
+        
         self.data = json.dumps(email)
+        
+        
+        #print self.data
+        #print type(self.data)
+        
         self.message_id = msg_id
         
         #Записываем объект
         session.add(self)
-        session.commit()
+
         try:
             session.commit()
         except RuntimeError:
@@ -261,6 +283,8 @@ class Message(Base):
         else:
             t_status[0] = 'OK'
             t_status[1] = 'Message object ID: ' + str(self.id) + ' writed.'
+            t_status[1] = t_status[1] + '\n ' + str(self.uuid)
+            
 
         """ Создаем Reference на новый объект """        
         ref = Reference(source_uuid = source['uuid'], 
@@ -284,6 +308,46 @@ class Message(Base):
             r_status[1] = 'Reference object ID: ' + str(ref.id) + ' writed.'
         
         return t_status,r_status
+
+
+
+
+class Classifier(Base):
+    """
+    Хранит список классификаторов.
+    """
+    
+    __tablename__ = "classifiers"
+    
+    id = Column(sqlalchemy.Integer, primary_key=True)
+    uuid = Column(sqlalchemy.String(50),default=uuid.uuid1())
+    description = Column(sqlalchemy.String(256))
+    clf_path = Column(sqlalchemy.String(256))
+    clf_type = Column(sqlalchemy.String(256))
+    
+    def __init__(self):
+        self.uuid = uuid.uuid1()
+    
+
+   
+
+class MessageCategory(Base):
+    """
+    Типы сообщений. Используется для классификации.
+    """
+    
+    __tablename__ = "message_category"
+
+    id = Column(sqlalchemy.Integer, primary_key=True)
+    uuid = Column(sqlalchemy.String(50),default=uuid.uuid1())
+    name = Column(sqlalchemy.String(256))
+    description = Column(sqlalchemy.String(256))
+    
+    def __init__(self):
+        self.uuid = uuid.uuid1()
+ 
+    
+
         
 
 def test():

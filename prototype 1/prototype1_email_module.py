@@ -162,6 +162,10 @@ def get_emails(account_attr):
                                        'replace').encode('utf8','replace')
                         msg_data['Text'] +=  get_text(html)
                     elif part.get_content_type() == "text/html":
+
+                        if not part.get_content_charset():
+                            part.set_charset("utf8")
+
                         html = unicode(part.get_payload(decode=True),
                                        part.get_content_charset(),
                                        'replace').encode('utf8','replace')
@@ -239,8 +243,8 @@ def get_email_messages():
                 email_data = {}
                 for email_data in emails.values():
                     #print type(email_data)
-                    #print email_data['From']
-                    #print email_data['Subject']
+                    #print email_data['from']
+                    #print email_data['to']
                     
                     
                     source = {'uuid':account.uuid,
@@ -248,6 +252,7 @@ def get_email_messages():
                               'id':account.id} 
                     msg = rwObjects.Message()
                     msg_status = "OK"
+                    
                     
                     if msg.is_exist_msg(session,email_data['message-id']):
                         print email_data['message-id']
@@ -257,7 +262,7 @@ def get_email_messages():
                     else:
                                                 
                         msg_status = msg.create_email(session,source,
-                                    json.dumps(email_data),email_data['message-id'])
+                                         email_data,email_data['message-id'])
                     
                     if msg_status[0][0] == 'OK':
                         print msg_status[0][1]
