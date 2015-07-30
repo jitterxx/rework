@@ -30,6 +30,7 @@ Constants
 """
 #Каналы взаимодействия reWork с внешним миром
 rwChannel_type = ["email","facebook","phone","vk    "]
+LEARN_PATH = "learn_machine/"
 
 """
 reWork classes
@@ -310,7 +311,40 @@ class Message(Base):
         return t_status,r_status
 
 
-
+def get_email_message(session,uuid):
+    """
+    Возвращает распакованные email сообщения по списку переданных UUID.
+    Параметр uuid -- список (List) uuid сообщений которые необходимо распаковать.
+    """
+    messages = {}
+           
+    if uuid == None:
+        #Получить все сообщения
+        pass
+    else:
+        #Получить сообщения по списку UUID
+        try:
+            query = session.query(Message).filter(Message.uuid.in_(uuid))
+        except sqlalchemy.orm.exc.NoResultFound:
+            print 'No emails.'        
+        else:
+            
+            for msg in query.all():
+                
+                email = json.loads(msg.data)
+               
+                for k in email.keys():
+                    email[k] = base64.b64decode(email[k])
+                
+                #print email.keys()     
+                #print "---------------------------------"
+    
+                    messages[msg.uuid] = email
+    
+        finally:
+            session.close()
+    
+    return messages
 
 class Classifier(Base):
     """
@@ -324,9 +358,12 @@ class Classifier(Base):
     description = Column(sqlalchemy.String(256))
     clf_path = Column(sqlalchemy.String(256))
     clf_type = Column(sqlalchemy.String(256))
+    vec_path = Column(sqlalchemy.String(256))
     
     def __init__(self):
         self.uuid = uuid.uuid1()
+        self.clf_path = LEARN_PATH + str(self.uuid) + str("_classifier.joblib.pkl")
+        self.vec_path = LEARN_PATH + str(self.uuid) + str("_vectorizer.joblib.pkl")
     
 
    
@@ -346,8 +383,75 @@ class MessageCategory(Base):
     def __init__(self):
         self.uuid = uuid.uuid1()
  
+class KnowledgeTree(Base):
+    """
+    Иерархическая структура знаний.
+    Каждый узел представляет собой описание темы с параметрами.
+    
+    """
+
+    __tablename__ = "knowledge_tree"
+    childs = []
+    parent = []
     
 
+    id = Column(sqlalchemy.Integer, primary_key=True)
+    uuid = Column(sqlalchemy.String(50),default=uuid.uuid1())
+    parent_id = Column(sqlalchemy.String(50))
+    name = Column(sqlalchemy.String(256))
+    tags = Column(sqlalchemy.String(256))
+    description = Column(sqlalchemy.String(256))
+    expert = Column(sqlalchemy.String(256))
+    tags_clf = Column(sqlalchemy.String(256),default = "")
+
+    def __init__(self):
+        self.uuid = uuid.uuid1()
+    
+    def return_childs(self,session,lvl,parent_id):
+
+
+        string = ""
+        obj = []
+        
+        try:
+            query = session.query(KnowledgeTree).\
+                filter(KnowledgeTree.parent_id == parent_id)
+           
+        except sqlalchemy.orm.exc.NoResultFound:
+            print "Больше нет дочерних узлов."
+            string = "1"
+        else:
+            for each in query.all():
+                #print each.id, each.name, each.parent_id
+                string = string + "|" + lvl*"--" + str(each.name) + "\n"
+                obj.append(each.id)
+                s,o = self.return_childs(session,lvl+1,each.id)
+                string = string + s
+                
+                if o:                
+                    obj.append(o)
+        
+        return string,obj
+        
+    
+    def return_full_tree(self,outformat):
+        """
+        Возвращает дерево в виде строки или словаря, согласно формату.
+        Строка - только названия узлов.
+        Словарь - все свойства.
+        """
+        
+        session = Session()
+        s = ""
+        ss,obj = self.return_childs(session,0,0)
+        s = s + ss
+        session.close()
+        
+        return s,obj
+        
+        
+        
+        
         
 
 def test():

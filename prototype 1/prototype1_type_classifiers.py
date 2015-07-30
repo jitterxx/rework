@@ -38,6 +38,7 @@ import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
 from sklearn import metrics
 from sklearn import tree
+from sklearn import svm
 import ast
 import base64
 from sklearn.externals import joblib
@@ -73,30 +74,42 @@ def tokenizer_1(data):
     return f
 
 
-def init_classifier():
+def init_classifier(clf_type):
     u"""
     Инициализация классификатора.
     """
+    status = ['','']
     session = rwObjects.Session()
     CL = rwObjects.Classifier()
-    CL.clf_type = 'DTree'
-    CL.clf_path = str(CL.uuid) + '_'+str(CL.clf_type)+'_classifier.joblib.pkl'
     
-    clf = tree.DecisionTreeClassifier()
+    if clf_type == "dtree":
+        CL.clf_type = 'dtree'
+        clf = tree.DecisionTreeClassifier()
+    elif clf_type == "svc":
+        CL.clf_type = 'svc'
+        clf = svm.SVC(kernel='linear', C=1.0, probability=True)
+    else:
+        status[0] = "ERROR"
+        status[1] = "Указан неверный тип классификатора."
+        
         
     try:
         joblib.dump(clf, CL.clf_path, compress=9)
     except RuntimeError:
-        print "Ошибка сохранения классификатора в файл "+str(CL.clf_path)
-        print sys.exc_info()
+        status[0] = "ERROR"
+        status[1] = "Ошибка сохранения классификатора в файл "+str(CL.clf_path)
+        status[1] = status[1] + str(sys.exc_info())
         
     else:
         session.add(CL)
         session.commit()
+        status[0] = "OK"
     finally:
         session.close()
+        
+    return status
 
-def fit_classifier(dataset,target):
+def fit_classifier(clf_id,dataset,target):
     u"""
     Переобучение классификатора при неверной классификации.
     Периодическое переобучение.
@@ -104,14 +117,15 @@ def fit_classifier(dataset,target):
     session = rwObjects.Session()
     
     try:
-        CL = session.query(rwObjects.Classifier).filter(rwObjects.Classifier.id == 1).one()
+        CL = session.query(rwObjects.Classifier).\
+                filter(rwObjects.Classifier.id == clf_id).one()
     except rwObjects.sqlalchemy.orm.exc.NoResultFound:
         print "Классификатор не найден. "
         print sys.exc_info()
     else:
         print "Классификатор загружен."        
         clf = joblib.load(CL.clf_path)
-        print clf.get_params
+        #print clf.get_params
         
     
     vectorizer = TfidfVectorizer(tokenizer=tokenizer_1,use_idf=True,\
@@ -119,14 +133,15 @@ def fit_classifier(dataset,target):
                             max_features=200)
     
     v = vectorizer.fit(dataset)
-    joblib.dump(v, 'vectorizer.joblib', compress=9)
+    
+    joblib.dump(v, CL.vec_path, compress=9)
     v = v.transform(dataset)
     V = v.todense()
     
-    terms = vectorizer.get_feature_names()
+    #terms = vectorizer.get_feature_names()
     
-    for i in terms:
-        print i
+    #for i in terms:
+     #   print i
 
     clf.fit(V,target)
     
@@ -148,10 +163,10 @@ def fit_classifier(dataset,target):
         print u"Классификатор сохранен после обучения :" + str(s)
 
     
-    return clf
+    return s
 
 
-def predict(clf,dataset):
+def predict(clf_id,dataset):
     u"""
     Вызов классификатора.
     Возвращает категорию.
@@ -160,7 +175,8 @@ def predict(clf,dataset):
     session = rwObjects.Session()
     
     try:
-        CL = session.query(rwObjects.Classifier).filter(rwObjects.Classifier.id == 1).one()
+        CL = session.query(rwObjects.Classifier).\
+                filter(rwObjects.Classifier.id == clf_id).one()
     except rwObjects.sqlalchemy.orm.exc.NoResultFound:
         print "Классификатор не найден. "
         print sys.exc_info()
@@ -170,7 +186,7 @@ def predict(clf,dataset):
         #print clf.get_params
         
     
-    v = joblib.load('vectorizer.joblib')
+    v = joblib.load(CL.vec_path)
     
     v = v.transform(dataset)
     V = v.todense()    
@@ -215,7 +231,7 @@ def test():
 
     
     data = pd.DataFrame(messages)
-    #train_text = data.loc['text']
+    train_text = data.loc['text']
     
     data = pd.DataFrame(testmsg)
     test_text = data.loc['text']
@@ -223,40 +239,56 @@ def test():
     cat = pd.Series(target)
     #print test_text.index[0]
     
-    #cls = fit_classifier(train_text,cat)
+    status = fit_classifier(8,train_text,cat)
 
-    probe,Z = predict('',dataset=test_text)
+    probe,Z = predict(8,dataset=test_text)
     
-    #print Z.size
+    print Z
     #print type(Z)
-    #print probe
+    print probe
     #print type(probe)
     
-    session = rwObjects.Session()
-    m = {}
-    c = {}
+    print "Проверка SVM"
     
-    for q in session.query(rwObjects.Message).all():
-        m[q.uuid] = q
-        
+    
+    status = fit_classifier(7,train_text,cat)
+
+    probe1,Z1 = predict(7,dataset=test_text)
+    
+    print Z1
+    print probe1
+    
+    session = rwObjects.Session()
+    c = {}
     
     for q in session.query(rwObjects.MessageCategory).all():
         c[q.id] = q
     
-    
-    for i in range(Z.size):
-        print "От кого:"        
-        print data.loc['from',data.columns[i]]
-        print "Тема:"        
-        print data.loc['subject',data.columns[i]]
 
-        print "\nКатегория:"
+    for i in range(Z.size):
+        print "От кого:"
+        print testmsg[data.columns[i]]['from']
+        print "Тема:"        
+        print testmsg[data.columns[i]]['subject']
+
+        print "\n Определена категория DTree:"
         print c[Z[i]].name
+        print "\n Определена категория SVC:"
+        print c[Z1[i]].name
+        
+        
         print "-----------------------------------"
         
+        
     
-
-test()
+    mmmm = rwObjects.get_email_message(session,['e9b5f246-3614-11e5-b267-f46d04d35cbd',
+    '457c878e-363d-11e5-83e3-f46d04d35cbd'])
+    
+    
+    #print mmmm['457c878e-363d-11e5-83e3-f46d04d35cbd']['text']
+    
+    
+        
 
 
     
