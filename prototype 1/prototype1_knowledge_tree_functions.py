@@ -47,22 +47,34 @@ def get_object_by_uuid(uuid):
                #print obj
                #print obj.__tablename__
     
-    print obj_class
+    print "obj_class :",obj_class
     
     try:
         query = session.query(rwObjects.Reference).\
-                filter(rwObjects.Reference.source_uuid == uuid).one()
-    except :
-        pass
+                filter(rwObjects.sqlalchemy.or_(rwObjects.Reference.source_uuid == uuid,\
+                        rwObjects.Reference.target_uuid == uuid)).first()
+    except RuntimeError:
+        print "error"
     else:
-        print session
-        t = query.source_type
-        kk = globals()[obj_class[t]]
-        mm = kk()
-        
-        print t
-        print mm
+        if query.source_uuid == uuid:
+            t = query.source_type            
+        elif query.target_uuid == uuid:
+            t = query.target_type                        
+            
+        print "type(query) :",type(query)
+        print "query type : ",t 
+        print "obj_class[t] :",obj_class[t]
 
+        kk = globals()[obj_class[t]]
+      
+
+    try:
+        obj = session.query(kk).filter_by(uuid = uuid).first()
+    except RuntimeError:
+        print "error"
+    else:
+        pass
+    
     
     return obj
 
@@ -93,7 +105,7 @@ def get_edges_for_object(uuid):
             edges.append({'uuid':each.source_uuid,'type':each.source_type})
     
     
-    return edgesMessage
+    return edges
     
     
 def test():
@@ -105,7 +117,7 @@ def test():
 
     
     #print get_edges_for_object('d004073c-31fc-11e5-9635-f46d04')
-    print get_object_by_uuid('d004073c-31fc-11e5-9635-f46d04')
+    print get_object_by_uuid('e9fa9342-3614-11e5-b267-f46d04d35cbd').uuid
     
     
 test()
