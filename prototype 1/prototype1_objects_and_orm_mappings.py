@@ -15,6 +15,7 @@ import datetime
 import json
 import base64
 from sklearn.externals import joblib
+import inspect
 
 import sys
 reload(sys)
@@ -506,5 +507,72 @@ def test():
             session.close()
         
 
+def get_by_uuid(uuid):
+    """
+    Возвращает объект любого типа по его uuid.
+    
+    В качестве параметров ждет UUID объекта.
+    Существование объекта определяется по наличию связи в References со статусом 1.
+    Параметры объекта определяются через его тип.
+    
+    Возвращает:
+    -- сам объект 
+    -- статус в виде списка. Первый элемент True/False в зависимости от итога
+    операций и сообщение во втором элемента (пустой если прошло успешно).
+    
+    """
 
+    session = Session()
+    obj_class = {}
+    status = [True,""]
+    #print sys.modules[__name__]
+    #print inspect.getmembers(sys.modules[__name__], inspect.isclass)
+    
+    for name, obj in inspect.getmembers(sys.modules[__name__], inspect.isclass):
+        try:
+            obj.__tablename__
+        except AttributeError:
+            status[0] = False
+            status[1] = "Нет класса для этого объекта. AttributeError. "
 
+        else:
+               obj_class[obj.__tablename__] = name
+               #print name,type(name)
+               #print obj,type(obj)
+               #print obj.__tablename__
+    
+    if not status:
+        raise
+    
+    #print "obj_class :",obj_class
+
+    try:
+        query = session.query(Reference).\
+                filter(sqlalchemy.and_(Reference.target_uuid == uuid,\
+                        Reference.link == 1)).first()
+    except RuntimeError:
+         status[0] = False
+         status[1] = "Нет объекта в References. RuntimeError. "
+        #print "нет объекта"
+    else:
+        t = query.target_type                        
+            
+        #print "type(query) :",type(query)
+        #print "query type : ",t 
+        #print "obj_class[t] :",obj_class[t]
+        
+        kk = globals()[obj_class[t]]
+        #print kk,type(kk)
+
+    if not status:
+        raise
+        
+    try:
+        obj = session.query(kk).filter_by(uuid = uuid).first()
+    except RuntimeError:
+         status[0] = False
+         status[1] = "Не могу найти объект в базе. RuntimeError. "
+    else:
+        pass
+    
+    return obj,status
