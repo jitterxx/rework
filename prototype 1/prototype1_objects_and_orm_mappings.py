@@ -15,6 +15,7 @@ import datetime
 import json
 import base64
 from sklearn.externals import joblib
+import inspect
 
 import sys
 reload(sys)
@@ -506,5 +507,65 @@ def test():
             session.close()
         
 
+def get_by_uuid(uuid):
+    """
+    Возвращает объект любого типа по его uuid
+    """
 
+    session = Session()
+    obj_class = {}
+    status = [True,""]
+    #print sys.modules[__name__]
+    #print inspect.getmembers(sys.modules[__name__], inspect.isclass)
+    
+    for name, obj in inspect.getmembers(sys.modules[__name__], inspect.isclass):
+        try:
+            obj.__tablename__
+        except AttributeError:
+            status[0] = False
+            status[1] = "Нет класса для этого объекта. AttributeError. "
 
+        else:
+               obj_class[obj.__tablename__] = name
+               #print name,type(name)
+               #print obj,type(obj)
+               #print obj.__tablename__
+    
+    if not status:
+        raise
+    
+    #print "obj_class :",obj_class
+
+    try:
+        query = session.query(Reference).\
+                filter(sqlalchemy.or_(Reference.source_uuid == uuid,\
+                        Reference.target_uuid == uuid)).first()
+    except RuntimeError:
+         status[0] = False
+         status[1] = "Нет объекта в References. RuntimeError. "
+        #print "нет объекта"
+    else:
+        if query.source_uuid == uuid:
+            t = query.source_type            
+        elif query.target_uuid == uuid:
+            t = query.target_type                        
+            
+        #print "type(query) :",type(query)
+        #print "query type : ",t 
+        #print "obj_class[t] :",obj_class[t]
+        
+        kk = globals()[obj_class[t]]
+        #print kk,type(kk)
+
+    if not status:
+        raise
+        
+    try:
+        obj = session.query(kk).filter_by(uuid = uuid).first()
+    except RuntimeError:
+         status[0] = False
+         status[1] = "Не могу найти объект в базе. RuntimeError. "
+    else:
+        pass
+    
+    return obj,status
