@@ -144,6 +144,7 @@ class show_object():
     @cherrypy.expose
     def index(self,uuid):
         obj = rwObjects.get_by_uuid(uuid)[0]
+        print obj.__tablename__,obj.name
         return "Вывод данных %s : %s" % obj.__tablename__,obj.name
         
         

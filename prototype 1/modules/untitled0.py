@@ -21,5 +21,5 @@ for a in cc.get_attrs():
     
     
 print type(cc)
-for a,b in cc:
-    print a,b
+for i in cc.get_attrs():
+    print i,cc.__dict__[i]
