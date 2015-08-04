@@ -37,11 +37,6 @@ LEARN_PATH = "learn_machine/"
 reWork classes
 """
 
-class rw_parent():
-
-    def get_attrs(self):
-        return [name for name in self.__dict__ if not name.startswith('_')]
-    
 
 
 def create_tables():
@@ -144,7 +139,12 @@ def create_company():
     ref.create(session)
     
 
+class rw_parent():
+
+    def get_attrs(self):
+        return [name for name in self.__dict__ if not name.startswith('_')]
     
+
 
 class Company(Base,rw_parent):
     
@@ -158,10 +158,7 @@ class Company(Base,rw_parent):
     
     def __init__(self):
         self.uuid = uuid.uuid1()
-        self.id = 0
-        self.name = ""
-        self.prefix = ""
-    
+
         
     def check(self):
        """
@@ -199,7 +196,9 @@ def get_company_by_id(id):
     """
 
 class Employee(Base,rw_parent):
-    
+    READONLY_FIELDS = ["id","uuid","login","comp_id"]
+    VIEW_FILDS = [['name','Имя'],['surname','Фамилия'],['login','Имя пользователя'],['password','Пароль']]
+
     __tablename__ = 'employees'
     
     id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
@@ -834,3 +833,89 @@ def get_by_uuid(uuid):
         pass
     
     return obj,status
+    
+def set_by_uuid(uuid,data):
+    """
+
+    Записывает объект любого типа по его uuid.
+    
+    В качестве параметров ждет поля объекта объекта,в формате Dict.
+    
+    Возвращает:
+    -- статус в виде списка. Первый элемент True/False в зависимости от итога
+    операций и сообщение во втором элемента (пустой если прошло успешно).
+    
+    """
+
+    session = Session()
+    status = [True,""]
+    
+    s = "set_by_uuid : " + str(data)
+    
+    #Определяем класс объекта
+    obj_class = get_by_uuid(uuid)[0].__class__
+    
+    #Получаем сам объект
+    obj = session.query(obj_class).filter_by(uuid = uuid).one()
+    
+    print obj_class
+    print obj
+    
+    keys = data.keys()
+    
+    
+    s = s + "\n set_by_uuid KEYS: " + str(keys)
+    
+    try:
+        data.pop("id")
+    except KeyError:
+        s = s + "\n нет ключа."
+    else:
+        s = s + "\n Ключ ID удален."
+    
+    try:        
+        data.pop("uuid")
+    except KeyError:
+        s = s + "\n нет ключа."
+    else:
+        s = s + "\n Ключ UUID удален."
+    
+    keys = data.keys()
+    
+    s = s + "\n set_by_uuid KEYS: " + str(keys)
+    
+    changed = False    
+    
+    for key in keys:
+        if obj.__dict__[key] != data[key]:
+            s = s + "\n значение изменилось:"
+            s = s + "\n " + str(obj.__dict__[key]) + " != " + str(data[key])            
+            obj.__dict__[key] = data[key]            
+            #Объявляем о модификации аттирибута объекта
+            sqlalchemy.orm.attributes.flag_modified(obj, key)
+            changed = True
+        else:
+            s = s + "\n значение не изменилось:"
+            s = s + "\n " + str(obj.__dict__[key]) + " == " + str(data[key])
+    
+    
+    
+
+    
+    if changed:
+        print "Session dirty : ",session.dirty
+        try:
+            session.commit()
+        except RuntimeError:
+            status[0]=False
+            s = s + "\n Ошибка записи объекта."
+        else:
+            s = s + "\n Запись объекта успешна."            
+        finally:
+            session.close()
+    else:
+        s = s + "\n Объект не изменялся. Не записан."
+    
+    status[1]=s
+    
+    return status

@@ -13,13 +13,6 @@ reload(sys)
 sys.setdefaultencoding("utf-8")
 
 
-cc = rw.get_by_uuid('beae5a9a-39e1-11e5-9c9e-f46d04d35cbd')[0]
+l = [['name','Имя'],['surname','Фамилия'],['login','Имя пользователя'],['password','Пароль']]
 
-
-for a in cc.get_attrs():
-    print "a,b : ",a
-    
-    
-print type(cc)
-for i in cc.get_attrs():
-    print i,cc.__dict__[i]
+print l[][0]
