@@ -1,0 +1,46 @@
+<%inherit file="page_structure.html"/>
+
+<%block name="title">
+    <title>Редактирование ${session_context["login"]}</title>
+    <link href="/static/css/dashboard.css" rel="stylesheet">
+
+</%block>
+
+    <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
+        <h1 class="page-header">${session_context["login"]}</h1>
+        <h2 class="sub-header">Свойства</h2>
+        <div class="table-responsive">
+            <table class="table table-striped">
+              <thead>
+                <tr>
+                  <th>Свойство</th>
+                  <th>Значение</th>
+                </tr>
+              </thead>
+              <tbody>
+                <form method="post" action="save">
+                % for key in keys:
+                	% if key in ["id","uuid","prefix","login","comp_id"]:
+                	<tr>
+                	 <td> ${key}</td>
+                	 <td> ${obj.__dict__[key]} 
+                    <input type="hidden" value="${obj.__dict__[key]}" name=${key} />
+                    </td>
+                	</tr>
+                	% else:
+                	<tr>
+                	 <td> ${key}</td>
+                	 <td> <input type="text" value="${obj.__dict__[key]}" name=${key} /></td>
+                	</tr>
+                	% endif
+                    % endfor
+                	 <tr>
+                	 <td><a href="/">Cancel</a></td>
+                	 <td><button type="submit">Записать</button></td>
+                    </tr>
+                </form> 
+              </tbody>
+            </table>
+        </div>
+
+    </div>

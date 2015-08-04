@@ -1,0 +1,41 @@
+<%inherit file="page_structure.html"/>
+
+<%block name="title">
+    <title>Дашбор</title>
+    <link href="/static/css/dashboard.css" rel="stylesheet">
+
+</%block>
+
+    <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
+    <h1 class="page-header">Содержание Дашбора</h1>
+
+
+    
+    <h2 class="sub-header">Параметры</h2>
+        <div class="table-responsive">
+            <table class="table table-striped">
+              <thead>
+                <tr>
+                  <th>Header</th>
+                  <th>Header</th>
+                </tr>
+              </thead>
+              <tbody>
+                % for i in session_context.keys():
+                  <tr>
+                  <td>${i}</td>
+                  <td>${session_context[i]}</td>
+                  </tr>
+                % endfor
+                % for i in params.keys():
+                  <tr>
+                  <td>${i}</td>
+                  <td>${params[i]}</td>
+                  </tr>
+                % endfor
+
+              </tbody>
+            </table>
+        </div>
+
+    </div>
