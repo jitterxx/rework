@@ -14,9 +14,56 @@ sys.path.append('/home/sergey/test/rework/prototype 1/modules')
 import prototype1_objects_and_orm_mappings as rwObjects
 import cherrypy
 from auth import AuthController, require, member_of, name_is
-from mako.template import Template
 from mako.lookup import TemplateLookup
-lookup = TemplateLookup(directories=["./html"])
+lookup = TemplateLookup(directories=["./templates"],output_encoding="utf-8",
+                        input_encoding="utf-8",encoding_errors="replace")
+
+class edit_object():
+    @cherrypy.expose
+    def edit(self,uuid):        
+        tmpl = lookup.get_template("edit_object.html")                
+        obj = rwObjects.get_by_uuid(uuid)[0]
+        keys = obj.get_attrs()        
+        
+        return tmpl.render(obj = obj,keys = keys,
+                           session_context = cherrypy.session.get('session_context'),
+                            view = obj.VIEW_FILDS)
+
+    
+class show_object():
+    @cherrypy.expose
+    def index(self,uuid):
+        
+        tmpl = lookup.get_template("show_object.html")        
+        obj = rwObjects.get_by_uuid(uuid)[0]
+        keys = obj.get_attrs()        
+        
+        return tmpl.render(obj = obj,keys = keys, 
+                           session_context = cherrypy.session.get('session_context'))
+        
+
+class save_object():
+ 
+    @cherrypy.expose    
+    def save(self, **kwargs):
+        data = cherrypy.request.params
+        url = cherrypy.request.headers['Referer']
+        print "Данные из запроса : "
+        #print cherrypy.request.headers['Referer']
+        print "\nСохраняем объект...\n"        
+        
+        status = rwObjects.set_by_uuid(data['uuid'],data)
+
+        #print "\n SAVE."
+        #print status[0]
+        #print status[1]
+
+        print "Переадресация на show_object... ",url
+        #print cherrypy.request.__dict__
+        raise cherrypy.HTTPRedirect(url)
+
+         
+
 
 
 class Company(object):
@@ -30,8 +77,9 @@ class Company(object):
     
     def _cp_dispatch(self, vpath):
         """
-        Обаработка REST URL
+        Обработка REST URL
         """
+        
         
         if len(vpath) == 1:
             cherrypy.request.params['uuid'] = vpath[0]
@@ -39,6 +87,9 @@ class Company(object):
         elif len(vpath) == 2 and vpath[1] == 'edit':
             cherrypy.request.params['uuid'] = vpath[0]            
             return edit_object()
+        elif len(vpath) == 2 and vpath[1] == 'save':
+            return save_object()
+        
         elif len(vpath) == 0:
             return self
             
@@ -84,7 +135,7 @@ class Employee(object):
 
     @cherrypy.expose
     def index(self):
-        
+
         session = rwObjects.Session()
         users = session.query(rwObjects.Employee).all()
         s = ""
@@ -122,32 +173,17 @@ class Timeline(object):
     @cherrypy.expose
     def index(self):
         
-        tmpl = lookup.get_template("employee.tpl")
+        tmpl = lookup.get_template("employee.html")
         session = rwObjects.Session()
-        users = session.query(rwObjects.Reference).all()
+        users = session.query(rwObjects.Reference).\
+                    order_by(rwObjects.Reference.timestamp).all()
         keys = users[0].get_attrs()
 
-        print "Ключи объекта: ",keys
-        
         return  tmpl.render(obj = users,keys = keys)
 
 
 
-class edit_object():
-    @cherrypy.expose
-    def edit(self,uuid):        
-        obj = rwObjects.get_by_uuid(uuid)[0]
-        return "Редактирование %s : %s" % obj.__tablename__,obj.name
-
     
-class show_object():
-    @cherrypy.expose
-    def index(self,uuid):
-        obj = rwObjects.get_by_uuid(uuid)[0]
-        print obj.__tablename__,obj.name
-        return "Вывод данных %s : %s" % obj.__tablename__,obj.name
-        
-        
 
 class RestrictedArea:
     
@@ -181,8 +217,10 @@ class Root(object):
     @cherrypy.expose
     @require()
     def index(self):
-        ss = cherrypy.request.config
-        return """This page only requires a valid login.""" + str(ss)
+        tmpl = lookup.get_template("dashboard.html")
+        c = get_session_context(cherrypy.request.login)
+        params = cherrypy.request.headers
+        return tmpl.render(params = params, session_context = c)
     
     @cherrypy.expose
     def open(self):
@@ -202,7 +240,24 @@ class Root(object):
         return """Hello Joe Admin - this page is available to you only"""        
 
 
+def get_session_context(login):
+    context = cherrypy.session.get('session_context')
+    user = rwObjects.get_employee_by_login(login)
+    for key in user.get_attrs():
+        context[key] = user.__dict__[key]
+    
+    context['company'] = rwObjects.get_company_by_id(user.comp_id)
+    context['groups'] = ""
 
+    
+    
+    for group in ['admin','user']:
+        if member_of(group):
+            context['groups'] = context['groups'] + "," + group
+    
+    cherrypy.session['session_context'] = context
+
+    return context
         
     
 
@@ -216,4 +271,4 @@ cherrypy.config.update({
 
 
 if __name__ == '__main__':
-   cherrypy.quickstart(Root())
+   cherrypy.quickstart(Root(),'/', "app.config")

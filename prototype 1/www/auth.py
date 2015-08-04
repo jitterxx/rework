@@ -11,8 +11,15 @@ sys.path.append('/home/sergey/test/rework/prototype 1/modules')
 import cherrypy
 import urllib
 import prototype1_objects_and_orm_mappings as rwObjects
+from mako.template import Template
+from mako.lookup import TemplateLookup
+lookup = TemplateLookup(directories=["./templates"],output_encoding="utf-8",
+                        input_encoding="utf-8",encoding_errors="replace")
 
 SESSION_KEY = '_cp_username'
+
+
+session_context = {}
 
 def check_credentials(username, password):
     """Verifies credentials for username and password.
@@ -125,22 +132,16 @@ class AuthController(object):
     
     def on_login(self, username):
         """Called on successful login"""
-            
-        user = rwObjects.get_employee_by_login(username)
+        #user = rwObjects.get_employee_by_login(username)
         
     
     def on_logout(self, username):
         """Called on logout"""
     
     def get_loginform(self, username, msg="Enter login information", from_page="/"):
-        return """<html><body>
-            <form method="post" action="/auth/login">
-            <input type="hidden" name="from_page" value="%(from_page)s" />
-            %(msg)s<br />
-            Username: <input type="text" name="username" value="%(username)s" /><br />
-            Password: <input type="password" name="password" /><br />
-            <input type="submit" value="Log in" />
-        </body></html>""" % locals()
+        tmpl = lookup.get_template("auth.html")        
+        
+        return tmpl.render(username = username, msg=msg, from_page = from_page)
     
     @cherrypy.expose
     def login(self, username=None, password=None, from_page="/"):
@@ -153,6 +154,7 @@ class AuthController(object):
         else:
             cherrypy.session.regenerate()
             cherrypy.session[SESSION_KEY] = cherrypy.request.login = username
+            cherrypy.session['session_context'] = {'login': str(username)}
             self.on_login(username)
             raise cherrypy.HTTPRedirect(from_page or "/")    
     
