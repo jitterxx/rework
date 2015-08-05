@@ -137,18 +137,49 @@ def create_company():
                     target_id = superuser.id,
                     link = 0)
     ref.create(session)
-    
+
+  
 
 class rw_parent():
 
+
+    NAME = ""
+
+    EDIT_FIELDS = []
+    ALL_FIELDS = {}
+    VIEW_FIELDS = []
+    ADD_FIELDS = []
+
     def get_attrs(self):
-        return [name for name in self.__dict__ if not name.startswith('_')]
+        attrs = [name for name in self.__dict__ if not name.startswith('_')]
+
+        return attrs
+    
+    def get_fields(self):
+        """
+        Возвращает три структуры из констант READONLY_FIELDS, VIEW_FIELDS.
+        -- Первая view -- словарь (Dict) содержит название поля объекта, 
+            подписей к полю для отображения.
+        -- Втоорая view_keys -- список (List) содержит названия полей объекта, 
+            определяет порядок отображения полей из словаря полей view.
+        -- Третий readonly - список (List) полей объекта недоступных для 
+            редактирования.
+        """
+       
+        return [self.ALL_FIELDS,self.VIEW_FIELDS,self.EDIT_FIELDS,self.ADD_FIELDS]
     
 
 
 class Company(Base,rw_parent):
     
     __tablename__ = 'companies'
+    NAME = "Компания"
+
+    EDIT_FIELDS = ['name','prefix']
+    ALL_FIELDS = {'name':'Имя','prefix':'домен','uuid':'Идентификатор',
+                  'id':'id'}
+    VIEW_FIELDS = ['name','prefix']
+    ADD_FIELDS = ['name','prefix']
     
     id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
     uuid = sqlalchemy.Column(sqlalchemy.String(50))
@@ -190,14 +221,25 @@ class Company(Base,rw_parent):
         
        return status
 
-def get_company_by_id(id):
+def get_company_by_id(cid):
     """
     Возвращает объект Компания по его id
     """
+    session = Session()
+    company = session.query(Company).filter_by(id = cid).first()
+    session.close()
+    return company
 
 class Employee(Base,rw_parent):
-    READONLY_FIELDS = ["id","uuid","login","comp_id"]
-    VIEW_FILDS = [['name','Имя'],['surname','Фамилия'],['login','Имя пользователя'],['password','Пароль']]
+    
+    EDIT_FIELDS = ['name','surname','password']
+    ALL_FIELDS = {'name':'Имя','surname':'Фамилия',
+                   'login':'Логин','password':'Пароль',
+                    'comp_id':'Компания','id':'id','uuid':'uuid'}
+    VIEW_FIELDS = ['name','surname','login','password']
+    ADD_FIELDS = ['name','surname','login','password']
+    NAME = "Сотрудник"
+    
 
     __tablename__ = 'employees'
     
@@ -213,7 +255,7 @@ class Employee(Base,rw_parent):
     def __init__(self):
         self.uuid = uuid.uuid1()
 
-
+    
     def check(self):
        """
        Проверка на существование пользователь с таким login.
@@ -328,6 +370,23 @@ class Reference(Base,rw_parent):
     Source/target_type - содержат название таблицы __tablename__ хранения объекта.
     """
     
+    
+    NAME = "Событие"
+    
+    EDIT_FIELDS = []
+    ALL_FIELDS = {'id':'id',
+    'source_uuid':'Кто',
+    'source_type':'Тип',
+    'source_id':'id',
+    'target_uuid':'С чем',
+    'target_type':'Тип',
+    'target_id':'id',
+    'link':'Связь',
+    'timestamp':'Время'}
+    VIEW_FIELDS = ['timestamp','source_uuid','link','target_uuid']
+    ADD_FIELDS = []    
+
+    
     __tablename__ = 'references'
     
     id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
@@ -355,6 +414,8 @@ class Reference(Base,rw_parent):
         
         
         return r_status
+    
+
         
 
 class Event():
@@ -613,6 +674,15 @@ class KnowledgeTree(Base,rw_parent):
     childs = []
     parent = []
     
+    NAME = "Знания"
+    EDIT_FIELDS = ['name','description','tags','expert']
+    ALL_FIELDS = {'name':'Название','description':'Описание',
+                  'tags':'Теги','expert':'Ответственный',
+                  'id':'id','uuid':'Идентификатор',
+                  'parent_id':'Родительский узел','tags_clf':'tags_clf'}
+    VIEW_FIELDS = ['name','description','tags','expert']
+    ADD_FIELDS = ['name','description','tags','expert']   
+    
 
     id = Column(sqlalchemy.Integer, primary_key=True)
     uuid = Column(sqlalchemy.String(50),default=uuid.uuid1())
@@ -653,18 +723,29 @@ class KnowledgeTree(Base,rw_parent):
         return string,obj
         
     
-    def return_full_tree(self,outformat):
+    def return_full_tree(self,session,outformat):
         """
         Возвращает дерево в виде строки или словаря, согласно формату.
-        Строка - только названия узлов.
-        Словарь - все свойства.
+        -- string -- строка, только названия узлов.
+        -- dict -- словарь, все свойства.
+        -- session -- использует существующую сессию SQL. Если None, создает свою.
+        
+        
         """
         
-        session = Session()
-        s = ""
-        ss,obj = self.return_childs(session,0,0)
-        s = s + ss
-        session.close()
+        if not session:
+            session = Session()
+        
+        if outformat == "string":
+            s = ""
+            ss,obj = self.return_childs(session,0,0)
+            s = s + ss
+        else:
+            s = ""
+            obj = None
+            
+        
+
         
         return s,obj
         
@@ -786,32 +867,38 @@ def get_by_uuid(uuid):
     #print inspect.getmembers(sys.modules[__name__], inspect.isclass)
     
     for name, obj in inspect.getmembers(sys.modules[__name__], inspect.isclass):
+        #print name
+        #print obj
         try:
             obj.__tablename__
-        except AttributeError:
-            status[0] = False
-            status[1] = "Нет класса для этого объекта. AttributeError. "
-
+        except AttributeError as e:
+            pass
         else:
                obj_class[obj.__tablename__] = name
                #print name,type(name)
                #print obj,type(obj)
                #print obj.__tablename__
     
-    if not status:
-        raise
+    if not status[0] and not bool(obj_class):
+        status[0] = False
+        status[1] = "Нет класса для этого объекта. " + str(e)
+        raise Exception(status[0],status[1])
     
     #print "obj_class :",obj_class
 
+    #Ищем объект
     try:
         query = session.query(Reference).\
                 filter(sqlalchemy.and_(Reference.target_uuid == uuid,\
-                        Reference.link == 1)).first()
-    except RuntimeError:
-         status[0] = False
-         status[1] = "Нет объекта в References. RuntimeError. "
+                        Reference.link == 1)).one()
+    except sqlalchemy.orm.exc.NoResultFound as e:
+        #print e
+        status[0] = False
+        status[1] = "Нет объекта в References." + str(e)
+        raise Exception(status[0],status[1])         
         #print "нет объекта"
     else:
+        #print query
         t = query.target_type                        
             
         #print "type(query) :",type(query)
@@ -821,16 +908,16 @@ def get_by_uuid(uuid):
         kk = globals()[obj_class[t]]
         #print kk,type(kk)
 
-    if not status:
-        raise
         
     try:
-        obj = session.query(kk).filter_by(uuid = uuid).first()
-    except RuntimeError:
+        obj = session.query(kk).filter_by(uuid = uuid).one()
+    except sqlalchemy.orm.exc.NoResultFound as e:
          status[0] = False
-         status[1] = "Не могу найти объект в базе. RuntimeError. "
+         status[1] = "Не могу найти объект в базе." + str(e)
+         raise Exception(status[0],status[1])
     else:
         pass
+
     
     return obj,status
     
@@ -853,8 +940,15 @@ def set_by_uuid(uuid,data):
     s = "set_by_uuid : " + str(data)
     
     #Определяем класс объекта
-    obj_class = get_by_uuid(uuid)[0].__class__
-    
+    try:    
+        obj_class = get_by_uuid(uuid)[0].__class__
+    except Exception as e:
+        print e[0]
+        print e[1]
+        raise Exception(e[0],e[1])
+    else:
+        pass
+
     #Получаем сам объект
     obj = session.query(obj_class).filter_by(uuid = uuid).one()
     
@@ -919,3 +1013,52 @@ def set_by_uuid(uuid,data):
     status[1]=s
     
     return status
+
+def create_new_employee(session,params,source):
+    #Создаем пользователя для компании
+    
+    if not session:
+        session = Session()
+        
+    user = Employee()
+
+    user.login = params['login'] + "@" + params['company_prefix']
+    user.name = params['name']
+    user.password = params['password']
+    user.surname = params['surname']
+    user.comp_id = params['comp_id']
+
+
+    #Проверить введенные данные. Проверяется логин
+    s = user.check()
+
+    if not s[0]:
+        raise Exception(s[1])
+    else:
+        session.add(user)
+        session.commit()
+    
+    #Записываем событие создания объекта
+    ref = Reference(source_uuid = source.uuid, 
+                    source_type = source.__tablename__,
+                    source_id = source.id,
+                    target_uuid = user.uuid,
+                    target_type = user.__tablename__,
+                    target_id = user.id,
+                    link = 1)
+    ref.create(session)
+    
+    """
+    Бизнес логика. 
+    Связываем нового пользователя с Компанией.
+    """
+    company = get_company_by_id(params['comp_is'])
+    ref = Reference(source_uuid = company.uuid, 
+                    source_type = company.__tablename__,
+                    source_id = company.id,
+                    target_uuid = user.uuid,
+                    target_type = user.__tablename__,
+                    target_id = user.id,
+                    link = 0)
+    ref.create(session)
+
