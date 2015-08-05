@@ -93,9 +93,9 @@ def member_of(groupname):
     def check():
         # replace with actual check if <username> is in <groupname>
         c = False
-        if cherrypy.request.login == 'superuser@rsa' and groupname == 'admin':
+        if cherrypy.request.login == 'superuser@rsa' and groupname in ['admin','users']:
             c = True
-        if cherrypy.request.login == 'superuser@_rw' and groupname == 'admin':
+        if cherrypy.request.login == 'superuser@_rw' and groupname == 'users':
             c = True
 
         return c
