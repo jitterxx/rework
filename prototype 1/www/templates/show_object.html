@@ -1,13 +1,13 @@
 <%inherit file="page_structure.html"/>
 
 <%block name="title">
-    <title>Профиль ${session_context["login"]}</title>
+    <title>Профиль объекта</title>
     <link href="/static/css/dashboard.css" rel="stylesheet">
 
 </%block>
 
     <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
-        <h1 class="page-header">Профиль ${session_context["login"]}</h1>
+        <h1 class="page-header">Профиль объекта</h1>
         <h2 class="sub-header">Свойства</h2>
         <div class="table-responsive">
             <table class="table table-striped">
@@ -18,10 +18,10 @@
                 </tr>
               </thead>
               <tbody>
-                % for i in keys:
+                % for key in view_f:
                   <tr>
-                  <td>${i}</td>
-                  <td>${obj.__dict__[i]}</td>
+                  <td>${all_f[key]}</td>
+                  <td>${obj.__dict__[key]}</td>
                   </tr>
                 % endfor
                 	 <tr>
