@@ -1,0 +1,43 @@
+<%inherit file="page_structure.html"/>
+
+<%block name="title">
+    <title>События ${session_context["company"]}</title>
+    <link href="/static/css/dashboard.css" rel="stylesheet">
+
+</%block>
+
+    <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
+        <h1 class="page-header"> События ${session_context["company"]}</h1>
+        <h2 class="sub-header"></h2>
+        <div class="table-responsive">
+            <table class="table table-striped">
+              <thead>
+                <tr>
+                % for i in view_f:
+                  <th>${all_f[i]}</th>
+                % endfor
+                </tr>
+              </thead>
+              <tbody>
+                % for event in obj:
+                  <tr>
+                    % for key in view_f:
+                        % if key in ['source_uuid','target_uuid']:
+                            <td>
+                                <a href="/object/${event.__dict__[key]}">
+                                ${actors[event.__dict__[key]][0]}
+                                ${actors[event.__dict__[key]][1]}
+                                </a>
+                            </td>
+                        % else:
+                            <td>${event.__dict__[key]}</td>
+                        % endif
+                    % endfor
+                  </tr>
+                % endfor
+              </tbody>
+            </table>
+        </div>
+
+
+    </div>
