@@ -16,14 +16,14 @@
         <span class="icon-bar"></span>
         <span class="icon-bar"></span>
       </button>
-      <a class="navbar-brand" href="#">Project name</a>
+      <a class="navbar-brand" href="/object/${session_context['company_uuid']}">${session_context['company']}</a>
     </div>
     <div id="navbar" class="navbar-collapse collapse">
       <ul class="nav navbar-nav navbar-right">
-        <li><a href="#">Dashboard</a></li>
-        <li><a href="#">Настройки</a></li>
-        <li><a href="/employee/${session_context['uuid']}">Профиль</a></li>
-        <li><a href="#">Помощь</a></li>
+        <li><a href="/">Dashboard</a></li>
+        <li><a href="/settings">Настройки</a></li>
+        <li><a href="/object/${session_context['uuid']}">Профиль</a></li>
+        <li><a href="/static/help">Помощь</a></li>
         <li><a href="/auth/logout">Выход</a></li>
       </ul>
     </div>
@@ -35,22 +35,11 @@
 <%block name="menu">
     <div class="col-sm-3 col-md-2 sidebar">
       <ul class="nav nav-sidebar">
-        <li class="active"><a href="#">Overview <span class="sr-only">(current)</span></a></li>
-        <li><a href="#">Reports</a></li>
-        <li><a href="#">Analytics</a></li>
-        <li><a href="#">Export</a></li>
-      </ul>
-      <ul class="nav nav-sidebar">
-        <li><a href="">Nav item</a></li>
-        <li><a href="">Nav item again</a></li>
-        <li><a href="">One more nav</a></li>
-        <li><a href="">Another nav item</a></li>
-        <li><a href="">More navigation</a></li>
-      </ul>
-      <ul class="nav nav-sidebar">
-        <li><a href="">Nav item again</a></li>
-        <li><a href="">One more nav</a></li>
-        <li><a href="">Another nav item</a></li>
+        <li class="active"><a href="/">Главная <span class="sr-only">(current)</span></a></li>
+        <li><a href="/clients">Клиенты</a></li>
+        <li><a href="/timeline">События</a></li>
+        <li><a href="/ktree">Дерево Знаний</a></li>
+        <li><a href="/employee">Сотрудники</a></li>
       </ul>
     </div>
 </%block>
@@ -60,4 +49,5 @@
 </%block>
 
 <%block name="footer">
+
 </%block>
