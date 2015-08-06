@@ -18,7 +18,10 @@ from mako.lookup import TemplateLookup
 lookup = TemplateLookup(directories=["./templates"],output_encoding="utf-8",
                         input_encoding="utf-8",encoding_errors="replace")
 
-class edit_object():
+class EditObject():
+    def __init__(self):
+        pass
+
     @cherrypy.expose
     def edit(self,uuid):        
 
@@ -32,16 +35,17 @@ class edit_object():
             tmpl = lookup.get_template("edit_object.html")                    
             obj_keys = obj.get_attrs()
             f = obj.get_fields()
-    
-            
             return tmpl.render(obj = obj,keys = obj_keys,
                                session_context = cherrypy.session.get('session_context'),
-                                all_f = f[0],
-                                view_f = f[1],
-                                edit_f = f[2])
+                                all_f=f[0],
+                                view_f=f[1],
+                                edit_f=f[2])
 
     
-class show_object():
+class ShowObject():
+    def __init__(self):
+        pass
+
     @cherrypy.expose
     def index(self,uuid):
         
@@ -63,9 +67,12 @@ class show_object():
                                 view_f = f[1])
         
 
-class save_object():
+class SaveObject():
  
-    @cherrypy.expose    
+    def __init__(self):
+        pass
+
+    @cherrypy.expose
     def save(self, **kwargs):
         data = cherrypy.request.params
 
@@ -89,12 +96,96 @@ class save_object():
             print status[1]
         
             print "Переадресация на show_object... ",url
-            #print cherrypy.request.__dict__
+            # print cherrypy.request.__dict__
             raise cherrypy.HTTPRedirect(url)
 
          
 
+class Account(object):
+    """
 
+    """
+
+    @cherrypy.expose
+    def index(self):
+        raise cherrypy.HTTPRedirect("/")
+
+
+    @cherrypy.expose
+    def add(self,employee_uuid):
+        """
+        Ожидает в параметрах  UUID сотрудника к которому аккаунт будет привязан.
+        """
+
+        tmpl = lookup.get_template("add.html")
+        session_context = cherrypy.session.get('session_context')
+        session_context['back_ref'] = "/employee"
+        session_context['employee_uuid'] = employee_uuid
+        cherrypy.session['session_context'] = session_context
+        obj = rwObjects.Account()
+        obj_keys = obj.get_attrs()
+        f = obj.get_fields()
+
+        return tmpl.render(obj = obj,keys = obj_keys, name = obj.NAME,
+                           session_context = session_context,
+                           all_f = f[0],
+                           create_f = f[3])
+    @cherrypy.expose
+    def create_new(self,**kwargs):
+        data = cherrypy.request.params
+        session_context = cherrypy.session.get('session_context')
+        employee_uuid = session_context.pop('employee_uuid')
+        print employee_uuid
+        print "Данные из запроса : "
+        print data
+        print "\nКонтекст :"
+        print session_context
+
+        params = {}
+
+        for p in data.keys():
+            params[p] = data[p]
+
+        """
+        Проверка параметров тут.
+        """
+
+        """ Извлекаем создателя и Создаем новый объект """
+        source = rwObjects.get_by_uuid(session_context['uuid'])[0]
+        session = rwObjects.Session()
+
+        try:
+            status, obj = rwObjects.create_new_object(session,"accounts",params,source)
+        except Exception as e:
+            print e
+        else:
+            print status
+
+        """
+        Если возвращен объект, выполняем бизнес логику.
+        Если None, значит ошибка.
+        """
+        if obj:
+            """
+            Бизнес логика.
+            Связываем новый аккаунт с его пользователем.
+            Пользователь передается в session_context['employee_uuid']
+            """
+            employee = rwObjects.get_by_uuid(employee_uuid)[0]
+            ref = rwObjects.Reference(source_uuid=employee.uuid,
+                            source_type=employee.__tablename__,
+                            source_id=employee.id,
+                            target_uuid=obj.uuid,
+                            target_type=obj.__tablename__,
+                            target_id=obj.id,
+                            link=0)
+            ref.create(session)
+
+        session.close()
+
+        cherrypy.session['session_context'] = session_context
+        print "Переадресация на  ", session_context['back_ref']
+        raise cherrypy.HTTPRedirect(session_context['back_ref'])
 
 
 class Employee(object):
@@ -113,12 +204,13 @@ class Employee(object):
         
         if len(vpath) == 1:
             cherrypy.request.params['uuid'] = vpath[0]
-            return show_object()
+            return ShowObject()
         elif len(vpath) == 2 and vpath[1] == 'edit':
             cherrypy.request.params['uuid'] = vpath[0]            
-            return edit_object()
-        elif len(vpath) == 2 and vpath[1] == 'save':
-            return save_object()
+            return EditObject()
+        elif len(vpath) == 2 and vpath[1] == 'add_account':
+            cherrypy.request.params['employee_uuid'] = vpath[0]
+            return ()
             
         elif len(vpath) == 0:
             return self
@@ -136,12 +228,23 @@ class Employee(object):
                 filter_by(comp_id = session_context['comp_id']).all()
         obj_keys = users[0].get_attrs()
         f = users[0].get_fields()
+        linked_objects = dict()
+        for user in users:
+            refs = session.query(rwObjects.Reference).\
+                filter(rwObjects.sqlalchemy.and_(rwObjects.Reference.source_uuid == user.uuid,
+                                                 rwObjects.Reference.target_type == "accounts",
+                                                 rwObjects.Reference.link == 0)).all()
+            linked_objects[user.uuid] = []
+            for ref in refs:
+                linked_objects[user.uuid].append(rwObjects.get_by_uuid(ref.target_uuid)[0])
+
         session.close()
             
         return tmpl.render(obj = users,keys = obj_keys, 
                            session_context = session_context,
                            view_f = f[1],
-                           all_f = f[0])
+                           all_f = f[0],
+                           linked = linked_objects)
 
 
     @cherrypy.expose
@@ -168,11 +271,15 @@ class Employee(object):
 
         params = {}
         params['login'] = data['login']
-        params['company_prefix'] = data['company_prefix']
+        params['company_prefix'] = session_context['company_prefix']
         params['name'] = data['name']
         params['password'] = data['password']
         params['surname'] = data['surname']
         params['comp_id'] = session_context['comp_id']
+
+        """
+        Проверка параметров тут.
+        """
 
         source = rwObjects.get_by_uuid(session_context['uuid'])[0]
         print "Данные из запроса : "
@@ -181,15 +288,39 @@ class Employee(object):
         print session_context
         print "Переадресация на show_object... ",url
         print source
-        
+
+        session = rwObjects.Session()
+
         try:
-            rwObjects.create_new_employee(None,params,source)
+            #rwObjects.create_new_employee(None,params,source)
+            status, obj = rwObjects.create_new_object(session,"employees",params,source)
         except Exception as e:
             print e
         else:
-            print "Создан."
+            print status
 
+        """
+        Если возвращен объект, проводим привязку согласно бизнес логики.
+        Если None, значит ошибка.
+        """
+        if obj:
+            """
+            Бизнес логика.
+            Связываем нового пользователя с Компанией.
+            """
+            company = rwObjects.get_company_by_id(params['comp_id'])
+            ref = rwObjects.Reference(source_uuid=company.uuid,
+                            source_type=company.__tablename__,
+                            source_id=company.id,
+                            target_uuid=obj.uuid,
+                            target_type=obj.__tablename__,
+                            target_id=obj.id,
+                            link=0)
+            ref.create(session)
+
+        session.close()
         raise cherrypy.HTTPRedirect(url)
+
 
 class Clients(object):
     """
@@ -224,7 +355,6 @@ class Clients(object):
                            session_context = session_context,
                            all_f = {"":""},
                            view_f = [""])
-            
 
 
 class Timeline(object):
@@ -243,10 +373,10 @@ class Timeline(object):
         
         if len(vpath) == 1:
             cherrypy.request.params['uuid'] = vpath[0]
-            return show_object()
+            return ShowObject()
         elif len(vpath) == 2 and vpath[1] == 'edit':
             cherrypy.request.params['uuid'] = vpath[0]            
-            return edit_object()
+            return EditObject()
         elif len(vpath) == 0:
             return self
             
@@ -254,8 +384,6 @@ class Timeline(object):
 
     @cherrypy.expose
     def index(self):
-        
-
         tmpl = lookup.get_template("timeline.html")
         session_context = cherrypy.session.get('session_context')
         session_context['back_ref'] = '/timeline'
@@ -292,9 +420,7 @@ class Timeline(object):
                     actors[event.target_uuid] = [obj.NAME]
                     actors[event.target_uuid].append(obj.__dict__[obj.VIEW_FIELDS[0]])
                     actors[event.target_uuid].append(obj.__dict__[obj.VIEW_FIELDS[1]])
-            
-            
-        return tmpl.render(obj = events,keys = obj_keys, 
+        return tmpl.render(obj = events,keys = obj_keys,
                            session_context = session_context,
                            all_f = f[0],
                            view_f = f[1],
@@ -340,14 +466,14 @@ class Any_object(object):
         if len(vpath) == 1:
             cherrypy.request.params['uuid'] = vpath[0]
             print "Показываем объект : ",vpath
-            return show_object()
+            return ShowObject()
         elif len(vpath) == 2 and vpath[1] == 'edit':
             cherrypy.request.params['uuid'] = vpath[0]            
             print "редактируем объект : ",vpath
-            return edit_object()
+            return EditObject()
         elif len(vpath) == 2 and vpath[1] == 'save':
             print "Сохраняем объект : ",vpath
-            return save_object()
+            return SaveObject()
        
         elif len(vpath) == 0:
             print "Вывод переадресации : ",vpath
@@ -396,6 +522,7 @@ class Root(object):
     timeline = Timeline()
     clients = Clients()
     ktree = KTree()
+    account = Account()
 
 
     @cherrypy.expose
