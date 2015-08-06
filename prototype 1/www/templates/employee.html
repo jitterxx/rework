@@ -11,28 +11,43 @@
         <h2 class="sub-header">
         <a class="btn btn-primary" role="button" href="add">Добавить сотрудника</a>        
         </h2>
-        <div class="table-responsive">
-            <table class="table table-striped">
-              <thead>
-                <tr>
-                % for i in view_f:
-                  <th>${all_f[i]}</th>
-                % endfor
-                </tr>
-              </thead>
-              <tbody>
-                % for user in obj:
-                  <tr>
-                    % for key in view_f:
-                        <td>${user.__dict__[key]}</td>
-                    % endfor
-                        <td> <a href="/object/${user.__dict__['uuid']}/edit">Редактировать</a></td>
-
-                  </tr>
-                % endfor
-            </tbody>
-            </table>
+        <div class="panel-group" id="accordion" role="tablist" aria-multiselectable="true">
+            % for user in obj:
+            <div class="panel panel-default">
+                <div class="panel-heading" role="tab" id="heading_${user.id}">
+                  <h4 class="panel-title">
+                    <a class="collapsed" role="button" data-toggle="collapse" data-parent="#accordion"
+                       href="#collapse_${user.id}"
+                       aria-expanded="false" aria-controls="collapse_${user.id}">
+                        ${user.name} ${user.surname}
+                    </a>&nbsp;&nbsp;
+                    <a href="/object/${user.__dict__['uuid']}/edit"><span class="glyphicon glyphicon-edit" aria-hidden="true"></span></a>
+                  </h4>
+                </div>
+                <div id="collapse_${user.id}" class="panel-collapse collapse" role="tabpanel" aria-labelledby="heading_${user.id}">
+                  <div class="panel-body">
+                      <p>
+                      <a class="btn btn-default btn-xs" href="/account/add?employee_uuid=${user.__dict__['uuid']}">
+                          <span class="glyphicon glyphicon-plus" aria-hidden="true"></span></a>
+                      </p>
+                      <p>
+                      % if linked[user.uuid]:
+                        <ul class="list-unstyled">
+                        % for link in linked[user.uuid]:
+                            <p>
+                            ${link.description} - ${link.login}
+                            <a class="btn btn-default btn-xs" href="/object/${link.uuid}">
+                            <span class="glyphicon glyphicon-edit" aria-hidden="true"></span></a>
+                            </p>
+                        % endfor
+                        </ul>
+                      % else:
+                        No accounts
+                      % endif
+                      </p>
+                  </div>
+                </div>
+            </div>
+            % endfor
         </div>
-
-
     </div>
