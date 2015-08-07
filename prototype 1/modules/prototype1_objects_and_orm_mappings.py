@@ -10,12 +10,14 @@ from sqlalchemy import Table, Column, Integer, ForeignKey
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer
+from sqlalchemy import or_,and_
 import uuid
 import datetime
 import json
 import base64
 from sklearn.externals import joblib
 import inspect
+import prototype1_queue_module as rwQueue
 
 import sys
 
@@ -306,8 +308,8 @@ class Account(Base, rw_parent):
     """
 
     __tablename__ = 'accounts'
-    DIRS = {"Yandex":"{'inbox': 'INBOX', 'sent': '&BB4EQgQ,BEAEMAQyBDsENQQ9BD0ESwQ1-'}",
-                     "Gmail":"{'inbox':'INBOX','sent':'[Gmail]/&BB4EQgQ,BEAEMAQyBDsENQQ9BD0ESwQ1-'}"}
+    DIRS = {'Yandex':'{"inbox": "INBOX", "sent": "&BB4EQgQ,BEAEMAQyBDsENQQ9BD0ESwQ1-"}',
+                     'Gmail':'{"inbox":"INBOX","sent":"[Gmail]/&BB4EQgQ,BEAEMAQyBDsENQQ9BD0ESwQ1-"}'}
 
     ALL_FIELDS = {
     "id":"id",
@@ -348,7 +350,7 @@ class Account(Base, rw_parent):
         self.login = ""
         self.password = ""
         self.dirs = self.DIRS["Gmail"]
-        self.last_check = ""
+        self.last_check = datetime.datetime.now()
 
     def check(self):
 
@@ -419,6 +421,7 @@ class Reference(Base, rw_parent):
     link = Column(Integer, default=0)
     timestamp = Column(sqlalchemy.DATETIME(), default=datetime.datetime.now())
 
+
     def create(self, session):
         r_status = [True, ""]
         # Записываем объект
@@ -431,6 +434,9 @@ class Reference(Base, rw_parent):
         else:
             r_status[0] = True
             r_status[1] = 'Reference object ID: ' + str(self.id) + ' writed.'
+
+            """ Вызываем функцию проверки бизнес правил """
+            rwQueue.apply_rules.delay(self.source_uuid,self.source_type,self.target_uuid,self.target_type)
 
         return r_status
 
@@ -500,6 +506,18 @@ class Used_case(Base, rw_parent):
 
 class Message(Base, rw_parent):
     __tablename__ = 'messages'
+    NAME = "Сообщение"
+    EDIT_FIELDS = ['viewed','category']
+    ALL_FIELDS = {'id': 'id',
+                  'uuid': 'Идентификатор',
+                  'channel_type': 'Тип',
+                  'message_id': 'Идентификатор',
+                  'viewed': 'Просмотрено',
+                  'category': 'Категория',
+                  'data': 'Сообщение'}
+    VIEW_FIELDS = ['message_id','viewed','category','data']
+    ADD_FIELDS = []
+
 
     id = Column(sqlalchemy.Integer, primary_key=True)
     uuid = Column(sqlalchemy.String(50), default=uuid.uuid1())
@@ -535,7 +553,7 @@ class Message(Base, rw_parent):
         Функция создания объекта Message типа Email.
         На вход получает:
         session -- текущйи объект Session для работы с БД.
-        Source -- параметры объекта Account через который было получено
+        Source -- объект Account через который было получено
         сообщение.
         Email - сообщение в виде dict {Заголовок поля: значение поля,...}. Из 
         преобразованного в словарь email.
@@ -546,8 +564,9 @@ class Message(Base, rw_parent):
         -- Создает объект Reference - событие создания объекта(link = 1)
 
         """
-        r_status = ["", ""]
-        t_status = ["", ""]
+
+        r_status = [None, ""]
+        t_status = [None, ""]
 
         self.channel_type = rwChannel_type[0]
         # self.data = json.dumps(email)
@@ -572,17 +591,18 @@ class Message(Base, rw_parent):
         try:
             session.commit()
         except RuntimeError:
-            t_status[0] = 'ERROR'
+            t_status[0] = False
             t_status[1] = 'Message object ID: ' + str(self.id) + ' NOT writed.'
+            return t_status, r_status
         else:
-            t_status[0] = 'OK'
+            t_status[1] = True
             t_status[1] = 'Message object ID: ' + str(self.id) + ' writed.'
             t_status[1] = t_status[1] + '\n ' + str(self.uuid)
 
         """ Создаем Reference на новый объект """
-        ref = Reference(source_uuid=source['uuid'],
-                        source_type=source['source_type'],
-                        source_id=source['id'],
+        ref = Reference(source_uuid=source.uuid,
+                        source_type=source.__tablename__,
+                        source_id=source.id,
                         target_uuid=self.uuid,
                         target_type=self.__tablename__,
                         target_id=self.id,
@@ -590,17 +610,21 @@ class Message(Base, rw_parent):
 
 
         # Записываем объект
-        session.add(ref)
-        try:
-            session.commit()
-        except RuntimeError:
-            r_status[0] = 'ERROR'
-            r_status[1] = 'Reference object ID: ' + str(ref.id) + ' NOT writed.'
-        else:
-            r_status[0] = 'OK'
-            r_status[1] = 'Reference object ID: ' + str(ref.id) + ' writed.'
+        r_status = ref.create(session)
 
         return t_status, r_status
+
+    def get_message_body(self):
+        body = dict()
+        data = json.loads(self.data)
+        if self.channel_type == "email":
+            body['to'] = base64.b64decode(data['to']).translate(None, "<>")
+            body['from'] = base64.b64decode(data['from']).translate(None, "<>")
+            body['subject'] = base64.b64decode(data['subject'])
+            body['text'] = base64.b64decode(data['text'])
+            body['message-id'] = base64.b64decode(data['message-id']).translate(None, "<>")
+            print body
+        return body
 
 
 def get_email_message(session, uuid):
@@ -914,6 +938,7 @@ def get_by_uuid(uuid):
     else:
         pass
 
+    session.close()
     return obj, status
 
 
@@ -1074,3 +1099,32 @@ def create_new_object(session, object_type,params, source):
     return status,new_obj
 
 
+def link_objects(session,source_uuid,target_uuid):
+    """
+    :param session: Session ORM. Если не передаеться, то поставить None.
+    :param source: UUID исходного объекта.
+    :param target: UUID целевого объекта.
+    :return: тестовая строка со статусом операции.
+    """
+    session_flag = False
+    if not session:
+        session = Session()
+        session_flag = True
+    """Получаем объекты для связи """
+    source = get_by_uuid(source_uuid)[0]
+    target = get_by_uuid(target_uuid)[0]
+
+    """ Создаем связь """
+    ref = Reference(source_uuid = source.uuid,
+                              source_type = source.__tablename__,
+                              source_id = source.id,
+                              target_uuid = target.uuid,
+                              target_type= target.__tablename__,
+                              target_id = target.id,
+                              link=0)
+    status = ref.create(session)
+
+    if session_flag:
+        session.close()
+
+    return status
