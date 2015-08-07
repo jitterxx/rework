@@ -29,6 +29,10 @@
                                 ${actors[event.__dict__[key]][1]}
                                 </a>
                             </td>
+                        % elif key in ['link'] and event.__dict__[key] == 1:
+                            <td>создан</td>
+                        % elif key in ['link'] and event.__dict__[key] == 0:
+                            <td> --------></td>
                         % else:
                             <td>${event.__dict__[key]}</td>
                         % endif

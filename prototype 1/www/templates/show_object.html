@@ -21,11 +21,20 @@
                 % for key in view_f:
                   <tr>
                   <td>${all_f[key]}</td>
-                  <td>${obj.__dict__[key]}</td>
+                  % if obj.__tablename__ == "messages" and key == "data":
+                    <td>
+                        <h4>${obj.get_message_body()['subject']}</h4>
+                        <h5>От кого:<small>${obj.get_message_body()['from']}</small></>
+                        <h5>Кому : <small>${obj.get_message_body()['to']}</small></h5>
+                        <p>${obj.get_message_body()['text']}</p>
+                    </td>
+                  % else:
+                    <td>${obj.__dict__[key]}</td>
+                  % endif
                   </tr>
                 % endfor
                 	 <tr>
-                	 <td> Назад</td>
+                	 <td> <a href="${session_context['back_ref']}">Назад</a></td>
                 	 <td> <a href="edit">Редактировать</a></td>
                     </tr>
               </tbody>
