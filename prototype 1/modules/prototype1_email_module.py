@@ -13,13 +13,14 @@ Messages типа email.
 # coding: utf8
 
 import imaplib
-import email
+from email import message_from_string, header
 import pandas as pd
 from bs4 import BeautifulSoup
 import chardet
 import prototype1_objects_and_orm_mappings as rwObjects
 import datetime
 import json
+import re
 
 
 
@@ -65,18 +66,30 @@ def strip_text(data):
     return text
 
 
-def get_emails(account_attr):
+def get_emails(account):
+    """
 
-    server = account_attr.server
-    port = account_attr.port
-    login = account_attr.login
-    password = account_attr.password
-    date_after = account_attr.last_check.strftime("%d-%b-%Y")
-    
-    date_before = account_attr.last_check.strftime("%d-%b-%Y")
-    dirs = json.loads(account_attr.dirs)
+    :param account: Объект типа Account.
+    :return: Список [messages,status]. Где messages - словарь с сообщениями в формате: messages[message_id] = {
+    "Название поля в сообщении":"значение поля"}.
+    """
+
+    server = account.server
+    port = account.port
+    login = account.login
+    password = account.password
+    date_after = account.last_check.strftime("%d-%b-%Y")
+    date_before = account.last_check.strftime("%d-%b-%Y")
+
+    dirs = json.loads(account.dirs)
     status = ""    
-    
+
+    print account.last_check
+    print date_after
+    print date_before
+    print dirs
+    print dirs.keys()
+
     try:
         M = imaplib.IMAP4_SSL(server)
     except: 
@@ -84,8 +97,8 @@ def get_emails(account_attr):
         status = 'ERROR.\n'
         raise
             
-    
-    print M.PROTOCOL_VERSION
+    if debug:
+        print M.PROTOCOL_VERSION
     
     #password = raw_input('Password:')
     
@@ -94,43 +107,54 @@ def get_emails(account_attr):
     
     for cur_dir in dirs.keys():
         if debug:
+            print "Проверяю папку: ",dirs[cur_dir]
             print M.select(dirs[cur_dir])
         
         M.select(dirs[cur_dir])
         
         #typ, data = M.search('UTF8','SINCE',date_after)
         #Запоминиаем какие письма были непрочитанными        
-        typ, data = M.search(None,'(UNSEEN)','(SINCE "%s")' % (date_after))
+        try:
+            typ, data = M.search(None,'(UNSEEN)','(SINCE "%s")' % (date_after))
+        except Exception as e:
+            raise Exception(str(date_after)+str(e))
+        else:
+            pass
         unseen_num = data[0].split()
         
-        #Ищем все письма начиная с date_after
+        if debug:
+            print "Ищем все письма начиная с %s " % date_after
+
         typ, data = M.search(None,'(SINCE "%s")' % (date_after))
         
         for num in data[0].split():
             typ, data = M.fetch(num, '(RFC822)')
-            
+            if debug:
+                print "Найдено :",data
+
             if num in unseen_num:
                 M.store(num, '-FLAGS', '\Seen')
         
-            msg = email.message_from_string(data[0][1])
-            
+            msg = message_from_string(data[0][1])
+
             
             msg_data = {}
             for n,m in msg.items():
                 k = ''
         
                 if debug:
-                    print 'm',m
+                    print n,' : ',m
                     pass
                 m = m.replace('?=<','?= <')
                 m = strip_text(m)
                 if debug:
-                    print m
+                    print n,' : ',m
                     pass
                 
                 broken = False
+
                 try:            
-                    for h in email.header.decode_header(m):
+                    for h in header.decode_header(m):
                         
                         k = ' '.join((k,h[0]))            
                         if not (h[1] == None):            
@@ -140,16 +164,19 @@ def get_emails(account_attr):
                             #Проверяем что строка корректно перекодирована
                             if not (chardet.detect(k)['encoding'] == 'UTF-8'):
                                 k = k.decode(chardet.detect(k)['encoding']).encode('utf8')
-                        
-                    if n in msg_data.keys():
-                        msg_data[n] = msg_data[n] + k
-                    else:
-                        msg_data[n] = k
+
+                        if n in msg_data.keys():
+                            msg_data[n] = msg_data[n] + k
+                        else:
+                            msg_data[n] = k
                 except:
+                    if debug:
+                        print "Ошибка кодировки в получении заголовков."
+                        pass
                     broken = True
             
             if debug:
-                print msg_data['From']
+                print msg_data.keys()
                 pass
         
             
@@ -199,6 +226,12 @@ def get_emails(account_attr):
             else:
                 #переводим все ключи в lowcase
                 msg_low = dict((k.lower(), v) for k, v in msg_data.iteritems())
+
+                """Очищаем поля from,to,message-id"""
+                for k in msg_low.keys():
+                    if k in ['to','from','message-id']:
+                        msg_low[k] = re.sub(u'[<>]+',u'',msg_low[k],re.I|re.U|re.M)
+
                 s[num] = dict(zip(msg_low.keys(), msg_low.values()))
 
     
@@ -282,13 +315,10 @@ def get_email_messages():
     return status
 
 def test():
-    print get_email_messages()
+    pass
+    #print get_email_messages()
 
     
 
-#rwObjects.create_tables()
-#rwObjects.test()
-test()
-    
     
     
