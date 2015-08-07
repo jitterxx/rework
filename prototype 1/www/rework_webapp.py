@@ -12,6 +12,7 @@ sys.path.append('/home/sergey/test/rework/prototype 1/modules')
 
 
 import prototype1_objects_and_orm_mappings as rwObjects
+import prototype1_queue_module as rwQueue
 import cherrypy
 from auth import AuthController, require, member_of, name_is
 from mako.lookup import TemplateLookup
@@ -235,6 +236,7 @@ class Employee(object):
                                                  rwObjects.Reference.target_type == "accounts",
                                                  rwObjects.Reference.link == 0)).all()
             linked_objects[user.uuid] = []
+
             for ref in refs:
                 linked_objects[user.uuid].append(rwObjects.get_by_uuid(ref.target_uuid)[0])
 
@@ -512,7 +514,6 @@ class Root(object):
         'tools.sessions.on': True,
         'tools.auth.on': True
     }
-    
     auth = AuthController()
     
     restricted = RestrictedArea()
@@ -526,11 +527,14 @@ class Root(object):
 
 
     @cherrypy.expose
-    @require()
+    @require(member_of("users"))
     def index(self):
         tmpl = lookup.get_template("dashboard.html")
         c = get_session_context(cherrypy.request.login)
         params = cherrypy.request.headers
+        print type(c['uuid'])
+        print c['login']
+        rwQueue.msg_delivery_for_user.delay(str(c['uuid']))
         return tmpl.render(params = params, session_context = c)
     
     @cherrypy.expose
