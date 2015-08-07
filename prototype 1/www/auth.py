@@ -31,10 +31,13 @@ def check_credentials(username, password):
     #    return u"Incorrect username or password."
     
     user = rwObjects.get_employee_by_login(username)
+    print user.login
+    print user.password
+    print password
     
     if user is None:
         return u"Username %s is unknown to me." % username
-    elif user.password !=password:
+    elif user.password != password:
         return u"Incorrect password"
     else:
         return None
@@ -50,7 +53,7 @@ def check_credentials(username, password):
 
 def check_auth(*args, **kwargs):
     """A tool that looks in config for 'auth.require'. If found and it
-    is not None, a login is required and the entry is evaluated as alist of
+    is not None, a login is required and the entry is evaluated as a list of
     conditions that the user must fulfill"""
     conditions = cherrypy.request.config.get('auth.require', None)
     # format GET params
@@ -89,13 +92,14 @@ def require(*conditions):
 #
 # Define those at will however suits the application.
 
+
 def member_of(groupname):
     def check():
         # replace with actual check if <username> is in <groupname>
         c = False
         if cherrypy.request.login == 'superuser@rsa' and groupname in ['admin','users']:
             c = True
-        if cherrypy.request.login == 'superuser@_rw' and groupname == 'users':
+        if cherrypy.request.login == 'petr@rsa' and groupname in ['users']:
             c = True
 
         return c
@@ -150,6 +154,7 @@ class AuthController(object):
         
         error_msg = check_credentials(username, password)
         if error_msg:
+            print error_msg
             return self.get_loginform(username, error_msg, from_page)
         else:
             cherrypy.session.regenerate()
