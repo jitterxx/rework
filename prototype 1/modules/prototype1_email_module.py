@@ -183,16 +183,18 @@ def get_emails(account):
                 pass
         
             
-            msg_data['Text'] = ''
-            msg_data['raw_text'] = ''
+            msg_data['text_plain'] = ''
+            msg_data['raw_text_plain'] = ''
+            msg_data['text_html'] = ''
+            msg_data['raw_text_html'] = ''
             if msg.is_multipart():
                 for part in msg.walk():
                     if part.get_content_type() == "text/plain":
                         html = unicode(part.get_payload(decode=True),
                                        part.get_content_charset(),
                                        'replace').encode('utf8','replace')
-                        msg_data['Text'] +=  get_text(html)
-                        msg_data['raw_text'] +=html
+                        msg_data['text_plain'] += html
+                        msg_data['raw_text_plain'] += html
                     elif part.get_content_type() == "text/html":
 
                         if not part.get_content_charset():
@@ -201,9 +203,8 @@ def get_emails(account):
                         html = unicode(part.get_payload(decode=True),
                                        part.get_content_charset(),
                                        'replace').encode('utf8','replace')
-                        msg_data['Text'] +=  get_text(html)
-                        msg_data['raw_text'] +=html
-        
+                        msg_data['text_html'] += html
+                        msg_data['raw_text_html'] += html
             else:
                 if msg.get_content_type() == "text/plain":
                     if debug:
@@ -216,17 +217,18 @@ def get_emails(account):
                     html = unicode(msg.get_payload(decode=True),
                                    msg.get_content_charset(),
                                    'replace').encode('utf8','replace')
-                    msg_data['Text'] +=  get_text(html)
-                    msg_data['raw_text'] +=html
+                    msg_data['text_plain'] += html
+                    msg_data['raw_text_plain'] += html
                 elif msg.get_content_type() == "text/html":
                     html = unicode(msg.get_payload(decode=True),
                                    msg.get_content_charset(),
                                    'replace').encode('utf8','replace')
-                    msg_data['Text'] +=  get_text(html)
-                    msg_data['raw_text'] +=html
+                    msg_data['text_html'] += html
+                    msg_data['raw_text_html'] += html
+
                 if debug:
-                    print 'HTML:',msg_data['raw_text']
-                    print 'TEXT:',msg_data['Text']       
+                    print 'HTML:',msg_data['raw_text_html']
+                    print 'TEXT:',msg_data['text_html']
             
             
             if broken and debug:
@@ -237,9 +239,11 @@ def get_emails(account):
 
                 """Очищаем поля from,to,message-id"""
                 for k in msg_low.keys():
+                    """
                     if k in ['to','from','cc','bcc']:
                         ea = extract_addresses(msg_low[k])
                         msg_low[k] = ea
+                    """
                     if k in ['message-id']:
                         msg_low[k] = re.sub(u'[<>]+',u'',msg_low[k],re.I|re.U|re.M)
 

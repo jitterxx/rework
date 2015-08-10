@@ -615,13 +615,18 @@ class Message(Base, rw_parent):
         return t_status, r_status
 
     def get_message_body(self):
+        """
+        Вызывается в шаблоне для распоковки поля data в сообщении.
+        Распаковывает только указаыннве поля: to,from,subject,message-id,raw_text_html, text_html
+        """
         body = dict()
         data = json.loads(self.data)
         if self.channel_type == "email":
             body['to'] = base64.b64decode(data['to']).translate(None, "<>")
             body['from'] = base64.b64decode(data['from']).translate(None, "<>")
             body['subject'] = base64.b64decode(data['subject'])
-            body['text'] = base64.b64decode(data['text'])
+            body['text_html'] = base64.b64decode(data['text_html'])
+            body['raw_text_html'] = base64.b64decode(data['raw_text_html'])
             body['message-id'] = base64.b64decode(data['message-id']).translate(None, "<>")
             print body
         return body
