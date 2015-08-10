@@ -13,28 +13,36 @@ import json
 import sys
 import time
 import base64
+import pymongo
 
 reload(sys)
 sys.setdefaultencoding("utf-8")
 
 
 
-account = rwObjects.get_by_uuid("f4efd818-3c52-11e5-bbe0-f46d04d35cbd")[0]
-
-emails = rwEmail.get_emails(account)[0]
-print emails.keys()
-
-for email in [emails['7490']]:
-    print "Text : \n",email['text']
-    print "Raw text : \n",email['raw_text']
-    #print "To : ",email['to']
-    #print "From : ",email['from']
-
-
 session = rwObjects.Session()
+m = rwObjects.get_email_message(session,['af3f1230-3f71-11e5-be81-f46d04d35cbd'])
+obj = rwObjects.get_by_uuid('af3f1230-3f71-11e5-be81-f46d04d35cbd')[0]
 
-m = rwObjects.get_email_message(session,['b5dfb6b2-3f44-11e5-8be3-f46d04d35cbd'])
+print obj.get_message_body()
 
-print "text :",m['b5dfb6b2-3f44-11e5-8be3-f46d04d35cbd']['text']
-print ""
-print "raw_test : ",m['b5dfb6b2-3f44-11e5-8be3-f46d04d35cbd']['raw_text']
+print m['af3f1230-3f71-11e5-be81-f46d04d35cbd']['from']
+
+
+
+
+#client = pymongo.MongoClient()
+#db = client['test']
+#emails = db.test
+
+#emails.drop()
+#msg = rwObjects.Message()
+#email_id = emails.insert_one(['name','type']).inserted_id
+
+##print db.collection_names()
+#print emails.find()
+#for e in emails.find():
+#    print e['_id']
+#    print type(e['_id'])
+#    pass
+

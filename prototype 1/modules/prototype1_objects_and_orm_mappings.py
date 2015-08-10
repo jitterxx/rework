@@ -18,6 +18,8 @@ import base64
 from sklearn.externals import joblib
 import inspect
 import prototype1_queue_module as rwQueue
+import pymongo
+import re
 
 import sys
 
@@ -504,6 +506,14 @@ class Used_case(Base, rw_parent):
     used_for = Column(sqlalchemy.String(256))
 
 
+class DynamicObjects(rw_parent):
+    """
+
+    """
+
+
+
+
 class Message(Base, rw_parent):
     __tablename__ = 'messages'
     NAME = "Сообщение"
@@ -548,19 +558,18 @@ class Message(Base, rw_parent):
 
         return check
 
-    def create_email(self, session, source, email, msg_id):
+    def create_email(self, session, source, data_link, msg_id):
         """
         Функция создания объекта Message типа Email.
         На вход получает:
-        session -- текущйи объект Session для работы с БД.
-        Source -- объект Account через который было получено
+        :param session: -- текущйи объект Session для работы с БД.
+        :param Source: -- объект Account через который было получено
         сообщение.
-        Email - сообщение в виде dict {Заголовок поля: значение поля,...}. Из 
-        преобразованного в словарь email.
+        :param data_link: -- ссылка на коллекцию mongoDB, где храниться содержимое объекта.
+        :param msg_id: -- идентификатор сообщения.
         
         Выполняет действия:
-        -- Заполняет свойство data объекта Message типа email. Данные сообщения
-            пишуться в json форматe.
+        -- Заполняет свойство data объекта Message типа email ссылкой на коллецию. Данные сообщения пишуться в mongoDB.
         -- Создает объект Reference - событие создания объекта(link = 1)
 
         """
@@ -573,11 +582,7 @@ class Message(Base, rw_parent):
         # print type(email)
         # self.data = str(email)
 
-
-        for k in email.keys():
-            email[k] = base64.b64encode(email[k])
-
-        self.data = json.dumps(email)
+        self.data = data_link
 
 
         # print self.data
@@ -620,15 +625,19 @@ class Message(Base, rw_parent):
         Распаковывает только указаыннве поля: to,from,subject,message-id,raw_text_html, text_html
         """
         body = dict()
-        data = json.loads(self.data)
-        if self.channel_type == "email":
-            body['to'] = base64.b64decode(data['to']).translate(None, "<>")
-            body['from'] = base64.b64decode(data['from']).translate(None, "<>")
-            body['subject'] = base64.b64decode(data['subject'])
-            body['text_html'] = base64.b64decode(data['text_html'])
-            body['raw_text_html'] = base64.b64decode(data['raw_text_html'])
-            body['message-id'] = base64.b64decode(data['message-id']).translate(None, "<>")
-            print body
+        client = pymongo.MongoClient()
+        conn = re.split("\.",str(self.data))
+        db = client[conn[0]]
+        msg = db[conn[1]]
+
+        tt = msg.find_one({"uuid": self.uuid})
+        if tt:
+            body['to'] = tt['to']
+            body['from'] = tt['from']
+            body['subject'] = tt['subject']
+            body['text_html'] = tt['text_html']
+            body['raw_text_html'] = tt['raw_text_html']
+            body['message-id'] = self.message_id
         return body
 
 
@@ -649,19 +658,12 @@ def get_email_message(session, uuid):
         except sqlalchemy.orm.exc.NoResultFound:
             print 'No emails.'
         else:
+            client = pymongo.MongoClient()
+            db = client.messages
+            dbe = db.emails
 
-            for msg in query.all():
-
-                email = json.loads(msg.data)
-
-                for k in email.keys():
-                    email[k] = base64.b64decode(email[k])
-
-                    # print email.keys()
-                    # print "---------------------------------"
-
-                    messages[msg.uuid] = email
-
+            for email in query.all():
+                messages[email.uuid] = dbe.find_one({"uuid": email.uuid})
         finally:
             session.close()
 

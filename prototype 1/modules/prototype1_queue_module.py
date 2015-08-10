@@ -76,13 +76,36 @@ def get_messages_for_account(account_uuid):
         else:
             pass
 
-        for email in emails.values():
-            """print type(email)
-            print email.keys()
-            print email['message-id']
-            print email_data['to']"""
+        """
+        Запись сообщения в МонгоДБ
+        """
+        import pymongo
+        client = pymongo.MongoClient()
+        db = client.messages
+        mongo_msg = db.emails
 
+        for email in emails.values():
             msg = rwObjects.Message()
+
+            print "----------Начало записи в Монго------------------"
+            email['_id'] = str(msg.uuid)
+            email['uuid'] = email['_id']
+            email['channel_type'] = account.acc_type
+            try:
+                tt = mongo_msg.find_one({"message-id": email['message-id']})
+            except Exception as e:
+                print "Ошибка...",e
+                raise Exception(e)
+
+            if not tt:
+                print "----------Начало записи объекта " + email['_id'] + "------------------"
+                msg_id = mongo_msg.insert_one(email).inserted_id
+                print "----------Конец записи объекта" + msg_id + " ------------------"
+            else:
+                print "Такой email уже существует msg_id: %s" % email['message-id']
+
+            print "---------- Окончание записи в Монго------------------"
+
             """
             В ситуации когда письма отправляются внутри организации, т.е. между суотрудниками,
             проверяем существование сообщения в базе.
@@ -93,7 +116,7 @@ def get_messages_for_account(account_uuid):
                 print email['message-id']
                 print "Сообщение добавлено."
                 print "----------------------------------------------"
-                msg_status = msg.create_email(session,account,email,email['message-id'])
+                msg_status = msg.create_email(session,account,mongo_msg._Collection__full_name,email['message-id'])
 
                 print msg_status[0][1]
                 print msg_status[1][1]
@@ -131,7 +154,7 @@ def apply_rules(source_uuid,source_type,target_uuid,target_type):
         else:
             owner_uuid = response.source_uuid
             print owner_uuid
-        """Ставим о очередь линкование объектов """
+        """Ставим в очередь линкование объектов """
         rwObjects.link_objects(session,owner_uuid,target_uuid)
 
     session.close()
