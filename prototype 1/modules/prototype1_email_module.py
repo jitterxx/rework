@@ -13,11 +13,9 @@ Messages типа email.
 # coding: utf8
 
 import imaplib
-from email import message_from_string, header
-import pandas as pd
+from email import message_from_string, header, utils
 from bs4 import BeautifulSoup
 import chardet
-import prototype1_objects_and_orm_mappings as rwObjects
 import datetime
 import json
 import re
@@ -145,8 +143,10 @@ def get_emails(account):
                 if debug:
                     print n,' : ',m
                     pass
+
                 m = m.replace('?=<','?= <')
                 m = strip_text(m)
+
                 if debug:
                     print n,' : ',m
                     pass
@@ -156,8 +156,8 @@ def get_emails(account):
                 try:            
                     for h in header.decode_header(m):
                         
-                        k = ' '.join((k,h[0]))            
-                        if not (h[1] == None):            
+                        k = ' '.join((k,h[0]))
+                        if not (h[1] == None):
                             #Делаем перекодировку в UTF8
                             k = k.decode(h[1]).encode('utf8')
                         else:
@@ -165,15 +165,18 @@ def get_emails(account):
                             if not (chardet.detect(k)['encoding'] == 'UTF-8'):
                                 k = k.decode(chardet.detect(k)['encoding']).encode('utf8')
 
-                        if n in msg_data.keys():
-                            msg_data[n] = msg_data[n] + k
-                        else:
-                            msg_data[n] = k
+                    if n in msg_data.keys():
+                        msg_data[n] = msg_data[n] + k
+                    else:
+                        msg_data[n] = k
                 except:
                     if debug:
                         print "Ошибка кодировки в получении заголовков."
                         pass
                     broken = True
+                else:
+                    pass
+                    #if n in ["From","To"]: print n,' : ',msg_data[n]
             
             if debug:
                 print msg_data.keys()
@@ -181,6 +184,7 @@ def get_emails(account):
         
             
             msg_data['Text'] = ''
+            msg_data['raw_text'] = ''
             if msg.is_multipart():
                 for part in msg.walk():
                     if part.get_content_type() == "text/plain":
@@ -188,6 +192,7 @@ def get_emails(account):
                                        part.get_content_charset(),
                                        'replace').encode('utf8','replace')
                         msg_data['Text'] +=  get_text(html)
+                        msg_data['raw_text'] +=html
                     elif part.get_content_type() == "text/html":
 
                         if not part.get_content_charset():
@@ -197,6 +202,7 @@ def get_emails(account):
                                        part.get_content_charset(),
                                        'replace').encode('utf8','replace')
                         msg_data['Text'] +=  get_text(html)
+                        msg_data['raw_text'] +=html
         
             else:
                 if msg.get_content_type() == "text/plain":
@@ -211,25 +217,30 @@ def get_emails(account):
                                    msg.get_content_charset(),
                                    'replace').encode('utf8','replace')
                     msg_data['Text'] +=  get_text(html)
+                    msg_data['raw_text'] +=html
                 elif msg.get_content_type() == "text/html":
                     html = unicode(msg.get_payload(decode=True),
                                    msg.get_content_charset(),
                                    'replace').encode('utf8','replace')
                     msg_data['Text'] +=  get_text(html)
+                    msg_data['raw_text'] +=html
                 if debug:
-                    print 'HTML:',html
+                    print 'HTML:',msg_data['raw_text']
                     print 'TEXT:',msg_data['Text']       
             
             
             if broken and debug:
                 print 'Broken encoding. Skip message.'
             else:
-                #переводим все ключи в lowcase
+                # переводим все ключи в lowcase
                 msg_low = dict((k.lower(), v) for k, v in msg_data.iteritems())
 
                 """Очищаем поля from,to,message-id"""
                 for k in msg_low.keys():
-                    if k in ['to','from','message-id']:
+                    if k in ['to','from','cc','bcc']:
+                        ea = extract_addresses(msg_low[k])
+                        msg_low[k] = ea
+                    if k in ['message-id']:
                         msg_low[k] = re.sub(u'[<>]+',u'',msg_low[k],re.I|re.U|re.M)
 
                 s[num] = dict(zip(msg_low.keys(), msg_low.values()))
@@ -241,6 +252,24 @@ def get_emails(account):
     return s,status
 
 
+def extract_addresses(field):
+    """
+    :param field: Поле email из которого надо извлечь имена и адреса.
+        Возвращает словарь в формате: key - email: value - ФИО или email, если ничего не было указано.
+    """
+    addresses = dict()
+    a = re.split(",",str(field))
+    for each in a:
+        name, addr = utils.parseaddr(each)
+        if name == "":
+            addresses[addr] = addr
+        else:
+            addresses[addr] = name
+
+    return addresses
+
+
+"""
 def get_email_messages():
     
     accounts = []
@@ -313,6 +342,7 @@ def get_email_messages():
         
    
     return status
+"""
 
 def test():
     pass

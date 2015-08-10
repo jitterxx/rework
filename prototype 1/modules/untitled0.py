@@ -16,12 +16,16 @@ import time
 reload(sys)
 sys.setdefaultencoding("utf-8")
 
-l = [['name', 'Имя'], ['surname', 'Фамилия'], ['login', 'Имя пользователя'], ['password', 'Пароль']]
 
 
-result = rwQueue.get_messages_for_account.delay("b1c4a3e2-3c58-11e5-b1af-f46d04d35cbd")
+account = rwObjects.get_by_uuid("f4efd818-3c52-11e5-bbe0-f46d04d35cbd")[0]
 
-print result
+emails = rwEmail.get_emails(account)[0]
+print emails.keys()
 
-
-
+for email in emails.values():
+    pass
+    #print "Text : \n",email['text']
+    #print "Raw text : \n",email['raw_text']
+    #print "To : ",email['to']
+    #print "From : ",email['from']
