@@ -15,6 +15,15 @@ import prototype1_objects_and_orm_mappings as rwObjects
 import prototype1_queue_module as rwQueue
 import cherrypy
 from auth import AuthController, require, member_of, name_is
+import networkx as nx
+import matplotlib.pyplot as plt
+from matplotlib import rc
+rc('font',**{'family':'serif'})
+rc('text', usetex=True)
+rc('text.latex',unicode=True)
+rc('text.latex',preamble='\usepackage[utf8]{inputenc}')
+rc('text.latex',preamble='\usepackage[russian]{babel}')
+
 from mako.lookup import TemplateLookup
 lookup = TemplateLookup(directories=["./templates"],output_encoding="utf-8",
                         input_encoding="utf-8",encoding_errors="replace")
@@ -530,11 +539,37 @@ class Root(object):
         tmpl = lookup.get_template("dashboard.html")
         c = get_session_context(cherrypy.request.login)
         params = cherrypy.request.headers
-        print type(c['uuid'])
-        print c['login']
         rwQueue.msg_delivery_for_user.delay(str(c['uuid']))
         return tmpl.render(params = params, session_context = c)
     
+    @cherrypy.expose
+    @require(member_of("users"))
+    def graph(self):
+        tmpl = lookup.get_template("graph.html")
+        c = get_session_context(cherrypy.request.login)
+        params = cherrypy.request.headers
+        session = rwObjects.Session()
+        response = session.query(rwObjects.Reference).filter(rwObjects.Reference.link == 0).all()
+
+        G = nx.Graph()
+        labels = {}
+        for line in response:
+            G.add_node(str(line.source_uuid),obj = line.source_type)
+            G.add_node(str(line.target_uuid),obj = line.target_type)
+            G.add_edge(str(line.source_uuid),str(line.target_uuid), comment = 'создан')
+
+        for node in G.nodes():
+            obj = rwObjects.get_by_uuid(node)[0]
+            labels[node]=obj.NAME
+
+        pos = nx.spring_layout(G)
+        nx.draw_networkx_nodes(G,pos)
+        nx.draw_networkx_labels(G,pos,labels=labels, font_size=6)
+        nx.draw_networkx_edges(G,pos)
+        plt.savefig("static/img/draw.png")
+
+        return tmpl.render(params = params, session_context = c)
+
     @cherrypy.expose
     def open(self):
         return """This page is open to everyone"""

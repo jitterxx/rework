@@ -14,6 +14,8 @@ import sys
 import time
 import base64
 import pymongo
+import networkx as nx
+import matplotlib.pyplot as plt
 
 reload(sys)
 sys.setdefaultencoding("utf-8")
@@ -68,24 +70,62 @@ session.close()
 
 obj = rwObjects.get_by_uuid('0b22ec78-4014-11e5-9245-f46d04d35cbd')[0]
 obj.read()
-print obj.get_attrs()
-print obj.VIEW_FIELDS
-print ""
 
 
-obj = rwObjects.get_by_uuid('0a2ae668-4014-11e5-9245-f46d04d35cbd')[0]
-obj.read()
-print obj.get_attrs()
-print obj.VIEW_FIELDS
-print ""
+obj1 = rwObjects.get_by_uuid('0a2ae668-4014-11e5-9245-f46d04d35cbd')[0]
+obj1.read()
 
-#print type(obj)
-#print obj.__dict__.keys()
-#print obj.ALL_FIELDS.keys()
-#print obj.VIEW_FIELDS
+print obj
+print obj1
+
+G = nx.Graph()
+G.add_node(str(obj.uuid),comment = obj)
+G.add_node(str(obj1.uuid))
+G.add_node(str(obj.uuid),comment = obj)
+G.add_node(str(obj1.uuid))
+
+G.add_edge(str(obj.uuid),str(obj1.uuid))
+#G[str(obj.uuid)]['comment'] = 'comment'
+
+
+print G.number_of_nodes()
+print G.number_of_edges()
+print G.nodes()
+print G.edges()
 
 
 
 
+G.clear()
+response = session.query(rwObjects.Reference).filter(rwObjects.Reference.link == 0).all()
+
+labels = {}
+for line in response:
+    G.add_node(str(line.source_uuid),obj = line.source_type)
+    G.add_node(str(line.target_uuid),obj = line.target_type)
+    G.add_edge(str(line.source_uuid),str(line.target_uuid), comment = 'создан')
+
+for node in G.nodes():
+    obj = rwObjects.get_by_uuid(node)[0]
+    labels[node]=obj.NAME
 
 
+#print G.number_of_nodes()
+#print G.number_of_edges()
+#print G.nodes()
+#print G.edges()
+#print G.node[str(obj.uuid)]
+
+
+from matplotlib import rc
+rc('font',**{'family':'serif'})
+rc('text', usetex=True)
+rc('text.latex',unicode=True)
+rc('text.latex',preamble='\usepackage[utf8]{inputenc}')
+rc('text.latex',preamble='\usepackage[russian]{babel}')
+
+pos = nx.spring_layout(G)
+nx.draw_networkx_nodes(G,pos)
+nx.draw_networkx_labels(G,pos,labels=labels, font_size=10)
+nx.draw_networkx_edges(G,pos)
+nx.draw
