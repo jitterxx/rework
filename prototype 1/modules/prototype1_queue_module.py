@@ -40,7 +40,7 @@ def msg_delivery_for_user(uuid):
                                                  rwObjects.Reference.link == 0)).all()
 
     for acc in refs:
-        print type(acc)
+        #print type(acc)
         get_messages_for_account.delay(acc.target_uuid)
     return "OK"
 
@@ -76,54 +76,34 @@ def get_messages_for_account(account_uuid):
         else:
             pass
 
-        """
-        Запись сообщения в МонгоДБ
-        """
-        import pymongo
-        client = pymongo.MongoClient()
-        db = client.messages
-        mongo_msg = db.emails
 
+        """
+        Запись сообщения в SQL и МонгоДБ
+        """
         for email in emails.values():
-            msg = rwObjects.Message()
+            do = rwObjects.DynamicObject()
+            email['channel_type'] = rwObjects.rwChannel_type[0]
+            email['obj_type'] = do.obj_type = do.collection = 'message'
 
-            print "----------Начало записи в Монго------------------"
-            email['_id'] = str(msg.uuid)
-            email['uuid'] = email['_id']
-            email['channel_type'] = account.acc_type
-            try:
-                tt = mongo_msg.find_one({"message-id": email['message-id']})
-            except Exception as e:
-                print "Ошибка...",e
-                raise Exception(e)
+            if not do.check({"message-id":email['message-id']}):
+                print "----------Начало записи в Монго------------------"
+                s = do.write(session,email)
 
-            if not tt:
-                print "----------Начало записи объекта " + email['_id'] + "------------------"
-                msg_id = mongo_msg.insert_one(email).inserted_id
-                print "----------Конец записи объекта" + msg_id + " ------------------"
+                print "---------- Окончание записи в Монго------------------"
+
+                if s[0]:
+                    """ Создаем Reference на новый объект """
+                    ref = rwObjects.Reference(source_uuid=account.uuid,
+                                source_type=account.__tablename__,
+                                source_id=account.id,
+                                target_uuid=do.uuid,
+                                target_type=do.__tablename__,
+                                target_id=do.id,
+                                link=1)
+                    # Записываем объект
+                    r_status = ref.create(session)
             else:
-                print "Такой email уже существует msg_id: %s" % email['message-id']
-
-            print "---------- Окончание записи в Монго------------------"
-
-            """
-            В ситуации когда письма отправляются внутри организации, т.е. между суотрудниками,
-            проверяем существование сообщения в базе.
-            Одно и тоже сообщение будет записано один раз.
-            В дальнейшем может быть связано с двумя сотрудниками.
-            """
-            if not msg.is_exist_msg(session,email['message-id']):
-                print email['message-id']
-                print "Сообщение добавлено."
-                print "----------------------------------------------"
-                msg_status = msg.create_email(session,account,mongo_msg._Collection__full_name,email['message-id'])
-
-                print msg_status[0][1]
-                print msg_status[1][1]
-            else:
-                print email['message-id']
-                print "Сообщение уже существует. Не добавлено."
-                print "----------------------------------------------"
+                print "Такое сообщение уже существует."
 
     account.last_check = datetime.now()
     session.commit()
@@ -144,7 +124,19 @@ def apply_rules(source_uuid,source_type,target_uuid,target_type):
         Если S = Account и T = Message, то связываем Сотрудника владеющего аккаунтом и сообщение.
             Владелец аккаунта всегда один и связан с ним связью весом 0.
      """
-    if target_type == "messages" and source_type == "accounts":
+    tt = target_type
+    st = source_type
+    if target_type == "dynamic_object":
+        response = session.query(rwObjects.DynamicObject).\
+                filter(rwObjects.DynamicObject.uuid == target_uuid).one()
+        tt = response.obj_type
+
+    elif source_type == "dynamic_object":
+        response = session.query(rwObjects.DynamicObject).\
+                filter(rwObjects.DynamicObject.uuid == source_uuid).one()
+        tt = response.obj_type
+
+    if tt == "message" and st == "accounts":
         try:
             response = session.query(rwObjects.Reference).\
                 filter(rwObjects.and_(0 == rwObjects.Reference.link,
@@ -153,7 +145,7 @@ def apply_rules(source_uuid,source_type,target_uuid,target_type):
             raise Exception(str(e))
         else:
             owner_uuid = response.source_uuid
-            print owner_uuid
+            print "Линкуем %s с %s " % (owner_uuid,target_uuid)
         """Ставим в очередь линкование объектов """
         rwObjects.link_objects(session,owner_uuid,target_uuid)
 

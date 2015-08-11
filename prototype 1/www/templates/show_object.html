@@ -20,17 +20,8 @@
               <tbody>
                 % for key in view_f:
                   <tr>
-                  <td>${all_f[key]}</td>
-                  % if obj.__tablename__ == "messages" and key == "data":
-                    <td>
-                        <h4>${obj.get_message_body()['subject']}</h4>
-                        <h5>От кого:<small>${obj.get_message_body()['from']}</small></>
-                        <h5>Кому : <small>${obj.get_message_body()['to']}</small></h5>
-                        <p>${obj.get_message_body()['raw_text_html']}</p>
-                    </td>
-                  % else:
-                    <td>${obj.__dict__[key]}</td>
-                  % endif
+                      <td>${all_f[key]}</td>
+                      <td>${obj.__dict__[key]}</td>
                   </tr>
                 % endfor
                 	 <tr>

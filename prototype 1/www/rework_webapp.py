@@ -58,11 +58,9 @@ class ShowObject():
             print e[1]
             raise cherrypy.HTTPRedirect("/")
         else:
-            print "OK"
             obj_keys = obj.get_attrs()
             f = obj.get_fields()
-            
-            return tmpl.render(obj = obj,keys = obj_keys, 
+            return tmpl.render(obj = obj,keys = obj_keys,
                                session_context = cherrypy.session.get('session_context'),
                                 all_f = f[0],
                                 view_f = f[1])

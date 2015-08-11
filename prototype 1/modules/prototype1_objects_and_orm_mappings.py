@@ -26,10 +26,6 @@ import sys
 reload(sys)
 sys.setdefaultencoding("utf-8")
 
-# Подключение БД
-Base = sqlalchemy.ext.declarative.declarative_base()
-Engine = sqlalchemy.create_engine('mysql://rework:HtdjhR123@localhost/rework?charset=utf8')
-Session = sqlalchemy.orm.sessionmaker(bind=Engine)
 
 """
 Constants
@@ -37,6 +33,21 @@ Constants
 # Каналы взаимодействия reWork с внешним миром
 rwChannel_type = ["email", "facebook", "phone", "vk"]
 LEARN_PATH = "learn_machine/"
+mongo_uri = 'mongodb://localhost/rsa'
+sql_uri = 'mysql://rework:HtdjhR123@localhost/rework?charset=utf8'
+
+"""
+Подключение БД и MongoDB
+"""
+Base = sqlalchemy.ext.declarative.declarative_base()
+Engine = sqlalchemy.create_engine(sql_uri)
+Session = sqlalchemy.orm.sessionmaker(bind=Engine)
+
+
+Mongo_client = pymongo.MongoClient(mongo_uri)
+Mongo_db = Mongo_client.get_default_database()
+
+
 
 """
 reWork classes
@@ -166,6 +177,15 @@ class rw_parent():
         """
 
         return [self.ALL_FIELDS, self.VIEW_FIELDS, self.EDIT_FIELDS, self.ADD_FIELDS]
+
+    def read(self):
+        """
+        Заглушка для чтения динамических объектов.
+        :return: самого себя
+        """
+        self.__dict__['obj_type'] = self.__tablename__
+
+
 
 
 class Company(Base, rw_parent):
@@ -506,12 +526,159 @@ class Used_case(Base, rw_parent):
     used_for = Column(sqlalchemy.String(256))
 
 
-class DynamicObjects(rw_parent):
+class DynamicObject(Base,rw_parent):
+    """
+    Динамические объекты.
+    В SQL базе только параметры, остальное в mongodb.
+    Доступ к объектам через встроенные функции класс read, write, они дополняют существующий экземпляр свойствами из
+    MongoDB.
     """
 
+    __tablename__ = 'dynamic_object'
+    NAME = "Бизнес объекты"
+
+    id = Column(sqlalchemy.Integer, primary_key=True)
+    uuid = Column(sqlalchemy.String(50), default=uuid.uuid1())
+    obj_type = Column(sqlalchemy.String(256))
+    collection = Column(sqlalchemy.String(256))
+    timestamp = Column(sqlalchemy.DATETIME(), default=datetime.datetime.now())
+
+    def __init__(self):
+        """
+        Инициализация объекта происходит с одновременным заполнением свойств.
+        :param data: словарь со значениями для свойств класса.
+        :return: возвращает объект типа DynamicObject
+        """
+        self.uuid = uuid.uuid1()
+
+    def write(self,session,obj):
+        session_flag = False
+
+        if not session:
+            session = Session()
+            session_flag = True
+
+        try:
+            self.obj_type = obj['obj_type']
+        except Exception as e:
+            raise("Не указан тип объекта в свойстве obj_type. " + str(e))
+        else:
+            pass
+
+        collection = Mongo_db[obj['obj_type']]
+        obj['uuid'] = self.uuid.__str__()
+        obj['_id'] = self.uuid.__str__()
+        self.collection = obj['obj_type']
+
+        try:
+            record_id = collection.insert_one(obj).inserted_id
+        except Exception as e:
+            raise("Не удалось сохранить объект в базе MongoDB. " + str(e))
+        else:
+            print "Объект сохранен " + str(record_id)
+
+            """
+            Записываем в sql базу данные о DynamicObject
+            """
+            # Записываем DynamicObject
+            session.add(self)
+            status = [True,""]
+            try:
+                session.commit()
+            except Exception:
+                raise([False,"Message object ID: " + str(self.id) + " NOT writed."])
+            else:
+                status[0] = True
+                status[1] = 'Message object ID: ' + str(self.id) + ' writed.'
+
+        if session_flag:
+            session.close()
+
+        return status
+
+    def read(self):
+        """
+        Прочитать объект из базы.
+        :param uuid: глобальный идентификатор объекта в системе. Равен _id в mongoDB.
+        :param obj_type: указывает на коллекцию в которой находится объект
+        :return: возвращает объект типа DynamicObject с заполненными полями. Если не найден, возвращает в None.
+        """
+        self.VIEW_FIELDS = []
+        #Определяем название коллекции в которой находиться объект
+        collection = Mongo_db[self.collection]
+        query = {'uuid':str(self.uuid)}
+
+        try:
+            obj = collection.find_one(query)
+        except Exception as e:
+            raise([False,"Ошибка чтения объекта. " + str(e)])
+        else:
+            #Заполняем параметры
+            #print "\nVIEW FIELDS ",self.VIEW_FIELDS
+            #Собираем в объект все ключи и их значения
+            for key in obj.keys():
+                self.__dict__[key] = obj[key]
+                self.ALL_FIELDS[key] = key
+            #print "\nВсе ключи ",self.__dict__.keys()
+
+            if self.obj_type == 'message':
+                view_f = ['from','to','cc','bcc', 'subject', 'raw_text_html']
+                self.NAME = 'Сообщение'
+                self.ALL_FIELDS['from'] = 'От кого'
+                self.ALL_FIELDS['to'] = 'Кому'
+                self.ALL_FIELDS['cc'] = 'Копия'
+                self.ALL_FIELDS['bcc'] = 'Скрытая копия'
+                self.ALL_FIELDS['subject'] = 'Тема'
+                self.ALL_FIELDS['raw_text_html'] = 'Текст'
+
+
+            #Удаляем ключи не присутствующие в данном объекте
+            for key in view_f:
+                if key in self.__dict__.keys():
+                    self.VIEW_FIELDS.append(key)
+
+            #print "\n NEW VIEW FIELDS ",self.VIEW_FIELDS
+
+
+    def check(self,query):
+        """
+        Проверяем наличие записей в базе с указанными параметрами.
+        :param query: Параметры в виде словаря.
+        :return True, если что-то нашлось, False - если совпадений не найдено.
+        """
+        collection = Mongo_db[self.collection]
+        response = collection.find_one(query)
+        if response:
+            return True
+        else:
+            return False
+
+
+
+class UnstructuredObject(rw_parent):
+    """
+    Класс для работы с объектами из MongoDB
     """
 
+    def read(self,uuid,collection):
+        """
+        Прочитать объект из базы.
+        :param uuid: глобальный идентификатор объекта в системе. Равен _id в mongoDB.
+        :param obj_type: указывает на коллекцию в которой находится объект
+        :return: возвращает объект типа DynamicObject с заполненными полями. Если не найден, возвращает в None.
+        """
+        #Определяем название коллекции в которой находиться объект
 
+        #Читаем объект
+        #Заполняем параметры
+        return obj,status
+
+    def write(self):
+        """
+        Записать объект в mongo.
+        Записывает в базу объект, со всеми значениями свойств.
+        :return: Возвращает статус операции.
+        """
 
 
 class Message(Base, rw_parent):
@@ -912,7 +1079,7 @@ def get_by_uuid(uuid):
         status[1] = "Нет класса для этого объекта. " + str(e)
         raise Exception(status[0], status[1])
 
-    # print "obj_class :",obj_class
+    #print "obj_class :",obj_class
 
     # Ищем объект
     try:
@@ -929,12 +1096,12 @@ def get_by_uuid(uuid):
         # print query
         t = query.target_type
 
-        # print "type(query) :",type(query)
-        # print "query type : ",t
-        # print "obj_class[t] :",obj_class[t]
+        #print "type(query) :",type(query)
+        #print "query type : ",t
+        #print "obj_class[t] :",obj_class[t]
 
         kk = globals()[obj_class[t]]
-        # print kk,type(kk)
+        #print kk,type(kk)
 
     try:
         obj = session.query(kk).filter_by(uuid=uuid).one()
@@ -944,9 +1111,12 @@ def get_by_uuid(uuid):
         raise Exception(status[0], status[1])
     else:
         pass
+        obj.read()
+        #print type(obj)
+        #print obj
 
     session.close()
-    return obj, status
+    return obj,status
 
 
 def set_by_uuid(uuid, data):
