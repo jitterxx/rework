@@ -10,7 +10,7 @@ from sqlalchemy import Table, Column, Integer, ForeignKey
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer
-from sqlalchemy import or_,and_
+from sqlalchemy import or_,and_,desc
 import uuid
 import datetime
 import json
@@ -35,6 +35,7 @@ rwChannel_type = ["email", "facebook", "phone", "vk"]
 LEARN_PATH = "learn_machine/"
 mongo_uri = 'mongodb://localhost/rsa'
 sql_uri = 'mysql://rework:HtdjhR123@localhost/rework?charset=utf8'
+STANDARD_OBJECTS_TYPES = ['accounts','employees','message']
 
 """
 Подключение БД и MongoDB
@@ -159,6 +160,7 @@ class rw_parent():
     ALL_FIELDS = {}
     VIEW_FIELDS = []
     ADD_FIELDS = []
+    SHORT_VIEW_FIELDS = []
 
     def get_attrs(self):
         attrs = [name for name in self.__dict__ if not name.startswith('_')]
@@ -184,6 +186,14 @@ class rw_parent():
         :return: самого себя
         """
         self.__dict__['obj_type'] = self.__tablename__
+
+    def check(self):
+        """
+        Проверка на существование объекта. Это заглушка в родительском классе.
+        В классе при необходимости должна быть переписана на реальную проверку.
+        :return : Всегда возвращает список -- [True,"OK"]
+        """
+        return [True,"OK"]
 
 
 
@@ -349,6 +359,7 @@ class Account(Base, rw_parent):
     VIEW_FIELDS = ['acc_type', 'description','server','port','dirs','login', 'password','last_check']
     ADD_FIELDS = ['acc_type', 'description','server','port','dirs','login', 'password']
     EDIT_FIELDS = ['description','server','port','dirs','login', 'password']
+    SHORT_VIEW_FIELDS = ['login','acc_type', 'description']
     NAME = "Аккаунт"
 
     id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
@@ -443,7 +454,6 @@ class Reference(Base, rw_parent):
     link = Column(Integer, default=0)
     timestamp = Column(sqlalchemy.DATETIME(), default=datetime.datetime.now())
 
-
     def create(self, session):
         r_status = [True, ""]
         # Записываем объект
@@ -456,9 +466,9 @@ class Reference(Base, rw_parent):
         else:
             r_status[0] = True
             r_status[1] = 'Reference object ID: ' + str(self.id) + ' writed.'
-
-            """ Вызываем функцию проверки бизнес правил при появлении нового объекта"""
-            rwQueue.apply_rules.delay(self.source_uuid,self.source_type,self.target_uuid,self.target_type)
+            if self.link == 1:
+                """ Вызываем функцию проверки автоматических правил при появлении нового объекта"""
+                rwQueue.apply_rules.delay(self.source_uuid,self.source_type,self.target_uuid,self.target_type)
 
         return r_status
 
@@ -630,6 +640,7 @@ class DynamicObject(Base,rw_parent):
                 self.ALL_FIELDS['bcc'] = 'Скрытая копия'
                 self.ALL_FIELDS['subject'] = 'Тема'
                 self.ALL_FIELDS['raw_text_html'] = 'Текст'
+                self.SHORT_VIEW_FIELDS = ['from','to','subject']
 
 
             #Удаляем ключи не присутствующие в данном объекте
@@ -671,7 +682,7 @@ class UnstructuredObject(rw_parent):
 
         #Читаем объект
         #Заполняем параметры
-        return obj,status
+        return None
 
     def write(self):
         """
@@ -889,9 +900,9 @@ class KnowledgeTree(Base, rw_parent):
     ALL_FIELDS = {'name': 'Название', 'description': 'Описание',
                   'tags': 'Теги', 'expert': 'Ответственный',
                   'id': 'id', 'uuid': 'Идентификатор',
-                  'parent_id': 'Родительский узел', 'tags_clf': 'tags_clf'}
+                  'parent_id': 'Родительский раздел', 'tags_clf': 'tags_clf'}
     VIEW_FIELDS = ['name', 'description', 'tags', 'expert']
-    ADD_FIELDS = ['name', 'description', 'tags', 'expert']
+    ADD_FIELDS = ['parent_id','name', 'description', 'tags', 'expert']
 
     id = Column(sqlalchemy.Integer, primary_key=True)
     uuid = Column(sqlalchemy.String(50), default=uuid.uuid1())
@@ -901,34 +912,27 @@ class KnowledgeTree(Base, rw_parent):
     description = Column(sqlalchemy.String(256))
     expert = Column(sqlalchemy.String(256))
     tags_clf = Column(sqlalchemy.String(256), default="")
+    objects_class = Column(sqlalchemy.String(256), default="")
 
     def __init__(self):
         self.uuid = uuid.uuid1()
 
-    def return_childs(self, session, lvl, parent_id):
+    def get_objects_classes(self):
+        """
+        Возвращает распакованные классы объектов которые надо показать в этом узле.
+        :return: список
+        """
+        resp = list()
+        if not self.objects_class:
+            return resp
+        for cl in re.split(",",self.objects_class):
+            i = re.split("\.",cl)
+            if len(i) == 1:
+                resp.append(i[0])
+            else:
+                resp.append(i[1])
 
-        string = ""
-        obj = []
-
-        try:
-            query = session.query(KnowledgeTree). \
-                filter(KnowledgeTree.parent_id == parent_id)
-
-        except sqlalchemy.orm.exc.NoResultFound:
-            print "Больше нет дочерних узлов."
-            string = "1"
-        else:
-            for each in query.all():
-                # print each.id, each.name, each.parent_id
-                string = string + "|" + lvl * "--" + str(each.name) + "\n"
-                obj.append(each.id)
-                s, o = self.return_childs(session, lvl + 1, each.id)
-                string = string + s
-
-                if o:
-                    obj.append(o)
-
-        return string, obj
+        return resp
 
     def return_full_tree(self, session, outformat):
         """
@@ -952,7 +956,61 @@ class KnowledgeTree(Base, rw_parent):
             obj = None
 
         return s, obj
+        print "Данные из запроса : "
+        print params
+        print "\nКонтекст :"
+        print session_context
+        print "Переадресация на show_object... ",url
 
+
+    @staticmethod
+    def ktree_return_childs(session, parent_id):
+        """
+        :param session: Объект SQLAlchemy Session.
+        :param parent_id: узел для которого ищутся дочение узлы.
+        :return obj: Возвращает на первом месте сам родительский узел. Список дочерних узлов идет после родительского,
+        если их нет, то только родительский.
+        то возвращается сам узел.
+         список.
+        """
+        obj = list()
+        if parent_id == 0:
+            raise Exception("Нельзя указывать parent_id = 0.")
+        try:
+            query = session.query(KnowledgeTree).\
+                filter(KnowledgeTree.id == parent_id).one()
+        except sqlalchemy.orm.exc.NoResultFound as e:
+            raise e
+            #"Родительский узел не найден."+str(e))
+        else:
+            obj.append(query)
+
+
+        try:
+            query = session.query(KnowledgeTree).\
+                filter(KnowledgeTree.parent_id == parent_id).all()
+        except sqlalchemy.orm.exc.NoResultFound:
+            print "Больше нет дочерних узлов."
+            return obj
+        except Exception as e:
+            raise e
+                #("Ошибка при чтении дерева из базы. "+str(e))
+        else:
+            for each in query:
+                obj.append(each)
+
+        return obj
+
+    @staticmethod
+    def get_root(session):
+        try:
+            query = session.query(KnowledgeTree).\
+                filter(KnowledgeTree.parent_id == 0).one()
+        except sqlalchemy.orm.exc.NoResultFound as e:
+            raise e
+                #("Родительский узел не найден."+str(e))
+        else:
+            return query.id
 
 class Question(Base, rw_parent):
     __doc__ = """
@@ -1241,6 +1299,11 @@ def create_new_object(session, object_type,params, source):
         for f in new_obj.ADD_FIELDS:
             if params[f] != "":
                 new_obj.__dict__[f] = params[f]
+    elif object_type == "knowledge_tree":
+        new_obj = KnowledgeTree()
+        for f in new_obj.ADD_FIELDS:
+            if f in params.keys() and params[f] != "":
+                new_obj.__dict__[f] = params[f]
 
     else:
         status[False,"Объект типа " + object_type + " создать нельзя."]
@@ -1257,8 +1320,8 @@ def create_new_object(session, object_type,params, source):
     try:
         session.add(new_obj)
         session.commit()
-    except :
-        return [False,"Ошибка записи в базу."],None
+    except Exception as e:
+        return [False,"Ошибка записи в базу."+str(e)],None
     else:
         # Записываем событие создания объекта
         ref = Reference(source_uuid=source.uuid,
@@ -1291,15 +1354,30 @@ def link_objects(session,source_uuid,target_uuid):
     source = get_by_uuid(source_uuid)[0]
     target = get_by_uuid(target_uuid)[0]
 
-    """ Создаем связь """
-    ref = Reference(source_uuid = source.uuid,
-                              source_type = source.__tablename__,
-                              source_id = source.id,
-                              target_uuid = target.uuid,
-                              target_type= target.__tablename__,
-                              target_id = target.id,
-                              link=0)
-    status = ref.create(session)
+    """Проверяем наличие связи """
+    try:
+        response = session.query(Reference).\
+            filter(and_(Reference.source_uuid == source.uuid,\
+                        Reference.source_type == source.__tablename__,\
+                        Reference.source_id == source.id,\
+                        Reference.target_uuid == target.uuid,\
+                        Reference.target_type == target.__tablename__)).all()
+    except Exception as e:
+        raise Exception("Ошибка чтения базы связей. " + str(e))
+    else:
+        pass
+    if not response:
+        """ Создаем связь """
+        ref = Reference(source_uuid = source.uuid,
+                                  source_type = source.__tablename__,
+                                  source_id = source.id,
+                                  target_uuid = target.uuid,
+                                  target_type= target.__tablename__,
+                                  target_id = target.id,
+                                  link=0)
+        status = ref.create(session)
+    else:
+        raise Exception("Такая связь уже существует.")
 
     if session_flag:
         session.close()
