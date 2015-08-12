@@ -179,15 +179,8 @@ class Account(object):
             Связываем новый аккаунт с его пользователем.
             Пользователь передается в session_context['employee_uuid']
             """
-            employee = rwObjects.get_by_uuid(employee_uuid)[0]
-            ref = rwObjects.Reference(source_uuid=employee.uuid,
-                            source_type=employee.__tablename__,
-                            source_id=employee.id,
-                            target_uuid=obj.uuid,
-                            target_type=obj.__tablename__,
-                            target_id=obj.id,
-                            link=0)
-            ref.create(session)
+            """Делаем линкование объектов """
+            rwObjects.link_objects(session, employee_uuid, obj.uuid)
 
         session.close()
 
@@ -301,7 +294,6 @@ class Employee(object):
         session = rwObjects.Session()
 
         try:
-            #rwObjects.create_new_employee(None,params,source)
             status, obj = rwObjects.create_new_object(session,"employees",params,source)
         except Exception as e:
             print e
@@ -396,9 +388,10 @@ class Timeline(object):
         tmpl = lookup.get_template("timeline.html")
         session_context = cherrypy.session.get('session_context')
         session_context['back_ref'] = '/timeline'
+        cherrypy.session['session_context'] = session_context
         session = rwObjects.Session()
-        events = session.query(rwObjects.Reference).\
-                    order_by(rwObjects.Reference.timestamp).all()
+        events = session.query(rwObjects.Reference).filter(rwObjects.Reference.link == 1).\
+                    order_by(rwObjects.desc(rwObjects.Reference.timestamp)).all()
         obj_keys = events[0].get_attrs()
         f = events[0].get_fields()
         actors = {}
@@ -442,21 +435,146 @@ class KTree(object):
     """
 
     _cp_config = {
-        'auth.require': [member_of('users')]
+        'auth.require': [member_of('users')],
+        'tools.sessions.on': True
     }
-    
+
+    def _cp_dispatch(self, vpath):
+        """
+        Обаработка REST URL
+        """
+
+        if len(vpath) == 1:
+            cherrypy.request.params['category_uuid'] = vpath[0]
+            return ShowKTreeCategory()
+        elif len(vpath) == 0:
+            return self
+
+        return vpath
+
     @cherrypy.expose
     def index(self):
         
         tmpl = lookup.get_template("ktree.html")
         session = rwObjects.Session()
-        t = rwObjects.KnowledgeTree()
-        tree = t.return_full_tree(session,'string')
+        tree = rwObjects.KnowledgeTree()
         session_context = cherrypy.session.get('session_context')
         session_context['back_ref'] = '/ktree'
+        cherrypy.session['session_context'] = session_context
 
-        return tmpl.render(obj = tree, 
+        return tmpl.render(obj = tree, session = session,
                            session_context = session_context)
+
+    @cherrypy.expose
+    def add(self,parent_id,name):
+
+        tmpl = lookup.get_template("add_ktree.html")
+        session_context = cherrypy.session.get('session_context')
+        session_context['parent_id'] = parent_id
+        session_context['parent_name'] = name
+        session = rwObjects.Session()
+        obj = rwObjects.KnowledgeTree()
+        obj_keys = obj.get_attrs()
+        f = obj.get_fields()
+
+        return tmpl.render(obj = obj,keys = obj_keys, name = "раздел Навигатора Знаний",
+                           session_context = session_context,
+                           all_f = f[0],
+                           create_f = f[3])
+
+    @cherrypy.expose
+    def create_new(self,**kwargs):
+        data = cherrypy.request.params
+        session_context = cherrypy.session.get('session_context')
+        url = session_context['back_ref'] = "/ktree"
+
+        print "Данные из запроса : "
+        print data
+        print "\nКонтекст :"
+        print session_context
+        print "Переадресация на show_object... ",url
+
+
+        params = dict()
+
+        try:
+            params['parent_id'] = data['parent_id']
+            params['name'] = data['name']
+            params['description'] = data['description']
+            params['tags'] = data['tags']
+            params['expert'] = data['expert']
+        except Exception as e:
+            raise(e)
+        else:
+            pass
+
+        """
+        Проверка параметров тут.
+        """
+        session = rwObjects.Session()
+        try:
+            rwObjects.KnowledgeTree.ktree_return_childs(session,params['parent_id'])
+        except Exception as e:
+            raise(e)
+        else:
+            pass
+            print
+
+        source = rwObjects.get_by_uuid(session_context['uuid'])[0]
+
+        """
+        Создаем новый объект класса KnowledgeTree
+        Для каждого нового типа необходимо добавить в  create_new_object условия.
+        """
+        try:
+            status, obj = rwObjects.create_new_object(session,"knowledge_tree",params,source)
+        except Exception as e:
+            raise(e)
+        else:
+            print status
+
+
+        session.close()
+        raise cherrypy.HTTPRedirect(url)
+
+
+class ShowKTreeCategory(object):
+
+    @cherrypy.expose
+    def index(self,category_uuid):
+
+        tmpl = lookup.get_template("ktree_show_category.html")
+        session_context = cherrypy.session.get('session_context')
+        session_context['back_ref'] = '/ktree'
+        cherrypy.session['session_context'] = session_context
+
+        print category_uuid
+
+        session = rwObjects.Session()
+        leaf = rwObjects.get_by_uuid(category_uuid)[0]
+        nodes = list()
+
+        try:
+            response = session.query(rwObjects.Reference).\
+                filter(rwObjects.or_(rwObjects.Reference.source_uuid == leaf.uuid,
+                                     rwObjects.Reference.target_uuid == leaf.uuid)).all()
+        except Exception as e:
+            raise(e)
+        else:
+            pass
+        for line in response:
+            source = rwObjects.get_by_uuid(line.source_uuid)[0]
+            target = rwObjects.get_by_uuid(line.target_uuid)[0]
+            if line.link == 0 and source.uuid == category_uuid:
+                nodes.append(target)
+            elif line.link == 0 and target.uuid == category_uuid:
+                nodes.append(source)
+
+        print nodes
+
+        return tmpl.render(obj = leaf, session = session, name=leaf.name,
+                           nodes=nodes, session_context = session_context)
+
 
 class Any_object(object):
     """

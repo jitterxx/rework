@@ -1,0 +1,36 @@
+<%inherit file="page_structure.html"/>
+
+<%block name="title">
+    <title>Новый ${name}</title>
+    <link href="/static/css/dashboard.css" rel="stylesheet">
+
+</%block>
+
+    <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
+        <h1 class="page-header">Новый ${name}</h1>
+        <h2 class="sub-header">Свойства</h2>
+        <div class="table-responsive">
+            <table class="table table-striped">
+              <tbody>
+                <form method="post" action="create_new">
+                % for key in create_f:
+                    	<tr>
+                    	 <td> ${all_f[key]}</td>
+                            % if key == "parent_id":
+                    	 <td>${session_context['parent_name']}<input type="hidden" value="${session_context[key]}" name=${key} /></td>
+                            % else:
+                    	 <td> <input type="text" value="" name=${key} /></td>
+                            % endif
+                    	</tr>
+
+                % endfor
+                	 <tr>
+                	 <td><a class="btn btn-primary" role="button" href="${session_context["back_ref"]}">Назад</a></td>
+                	 <td><button class="btn btn-success" type="submit">Создать</button></td>
+                    </tr>
+                </form> 
+              </tbody>
+            </table>
+        </div>
+
+    </div>
