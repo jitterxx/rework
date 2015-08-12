@@ -105,7 +105,7 @@ def get_messages_for_account(account_uuid):
 @app.task()
 def apply_rules(source_uuid, source_type, target_uuid, target_type):
     """
-    В момент появления связи "создания" между объектами проходит проверка Бизнес правил.
+    В момент появления связи "создания" между объектами проходит проверка автоматических правил.
     Эта функция вызывается автоматически при вызове функции Reference.create()
     :param source_uuid: UUID объекта источника
     :param source_type: тип объекта источника
@@ -130,12 +130,11 @@ def apply_rules(source_uuid, source_type, target_uuid, target_type):
             filter(rwObjects.DynamicObject.uuid == source_uuid).one()
         tt = response.obj_type
 
-    """Правило 1.
-        Если S = Account и T = Message, то связываем Сотрудника владеющего аккаунтом и сообщение.
-            Владелец аккаунта всегда один и связан с ним связью весом 0.
-     """
-
-    if tt == "message" and st == "accounts":
+        """Правило 1. Acc создает Msg
+            Если S = Account и T = Message, то связываем Сотрудника владеющего аккаунтом и сообщение.
+                Владелец аккаунта всегда один и связан с ним связью весом 0.
+         """
+    if st == "accounts" and tt == "message":
         try:
             response = session.query(rwObjects.Reference). \
                 filter(rwObjects.and_(0 == rwObjects.Reference.link,
@@ -147,6 +146,49 @@ def apply_rules(source_uuid, source_type, target_uuid, target_type):
             print "Линкуем %s с %s " % (owner_uuid, target_uuid)
         """Делаем линкование объектов """
         rwObjects.link_objects(session, owner_uuid, target_uuid)
+
+        """
+        Правило 2. Empl создает Empl
+        Если S = Employee и T = Employee, то связываем нового пользователя с Компанией.
+            Пользователя создает суперюзер, он связан со своей компанией линком весом 0.
+        """
+    elif st == "" and tt == "":
+        # 1. Находим компанию
+        pass
+
+        """
+        Правило 3. Empl создает Acc
+        Если S = Employee и T = Account, то связываем новый Аккаунт с Пользователем.
+        """
+    elif st == "" and tt == "":
+        # 1.
+        pass
+
+    """
+    Линкуем стандартные объекты в момент создания со стандартными ветками дерева знаний.
+    Стандартные типы объектов перечисленны в STANDARD_OBJECT_TYPES.
+    Если ветки в ДЗ нет, то она создается в корне дерева.
+    """
+    standard = rwObjects.STANDARD_OBJECTS_TYPES
+    classes = dict()
+    try:
+        response = session.query(rwObjects.KnowledgeTree).all()
+    except Exception as e:
+        raise Exception("Ошибка чтения ДЗ." + str(e))
+    else:
+        pass
+    for leaf in response:
+        cls = leaf.get_objects_classes()
+        for c in cls:
+            if c not in classes.keys():
+                classes[c] = leaf.uuid
+
+    print classes.keys()
+    print standard
+    print tt
+    if tt in standard and tt in classes.keys():
+        rwObjects.link_objects(session, classes[tt], target_uuid)
+        pass
 
     session.close()
     return "OK"

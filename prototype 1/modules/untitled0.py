@@ -68,64 +68,31 @@ for e in emails.find():
 session.close()
 """
 
-obj = rwObjects.get_by_uuid('0b22ec78-4014-11e5-9245-f46d04d35cbd')[0]
-obj.read()
 
+session = rwObjects.Session()
 
-obj1 = rwObjects.get_by_uuid('0a2ae668-4014-11e5-9245-f46d04d35cbd')[0]
-obj1.read()
+tt = 'message'
+target_uuid = '80fe9474-4014-11e5-953b-f46d04d35cbd'
 
-print obj
-print obj1
+standard = rwObjects.STANDARD_OBJECTS_TYPES
+classes = dict()
+try:
+    response = session.query(rwObjects.KnowledgeTree).all()
+except Exception as e:
+    raise Exception("Ошибка чтения ДЗ." + str(e))
+else:
+    pass
+for leaf in response:
+    cls = leaf.get_objects_classes()
+    for c in cls:
+        if c not in classes.keys():
+            classes[c] = leaf.uuid
 
-G = nx.Graph()
-G.add_node(str(obj.uuid),comment = obj)
-G.add_node(str(obj1.uuid))
-G.add_node(str(obj.uuid),comment = obj)
-G.add_node(str(obj1.uuid))
+print classes.keys()
+print standard
+print tt
+if tt in standard and tt in classes.keys():
+    rwObjects.link_objects(session, classes[tt], target_uuid)
+    pass
 
-G.add_edge(str(obj.uuid),str(obj1.uuid))
-#G[str(obj.uuid)]['comment'] = 'comment'
-
-
-print G.number_of_nodes()
-print G.number_of_edges()
-print G.nodes()
-print G.edges()
-
-
-
-
-G.clear()
-response = session.query(rwObjects.Reference).filter(rwObjects.Reference.link == 0).all()
-
-labels = {}
-for line in response:
-    G.add_node(str(line.source_uuid),obj = line.source_type)
-    G.add_node(str(line.target_uuid),obj = line.target_type)
-    G.add_edge(str(line.source_uuid),str(line.target_uuid), comment = 'создан')
-
-for node in G.nodes():
-    obj = rwObjects.get_by_uuid(node)[0]
-    labels[node]=obj.NAME
-
-
-#print G.number_of_nodes()
-#print G.number_of_edges()
-#print G.nodes()
-#print G.edges()
-#print G.node[str(obj.uuid)]
-
-
-from matplotlib import rc
-rc('font',**{'family':'serif'})
-rc('text', usetex=True)
-rc('text.latex',unicode=True)
-rc('text.latex',preamble='\usepackage[utf8]{inputenc}')
-rc('text.latex',preamble='\usepackage[russian]{babel}')
-
-pos = nx.spring_layout(G)
-nx.draw_networkx_nodes(G,pos)
-nx.draw_networkx_labels(G,pos,labels=labels, font_size=10)
-nx.draw_networkx_edges(G,pos)
-nx.draw
+session.close()
