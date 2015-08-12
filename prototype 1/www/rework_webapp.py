@@ -502,7 +502,7 @@ class KTree(object):
             params['name'] = data['name']
             params['description'] = data['description']
             params['tags'] = data['tags']
-            params['expert'] = data['expert']
+            params['expert'] = session_context['login']
         except Exception as e:
             raise(e)
         else:

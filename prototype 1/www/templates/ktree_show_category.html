@@ -9,10 +9,11 @@
     <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
         <h1 class="page-header">${name}</h1>
         % for node in nodes:
+        <p>
         <a href="/object/${node.uuid}" >
             % for key in node.SHORT_VIEW_FIELDS:
                 ${node.ALL_FIELDS[key]}: ${node.__dict__[key]}
             % endfor
-        </a>
+        </a></p>
         % endfor
     </div>
