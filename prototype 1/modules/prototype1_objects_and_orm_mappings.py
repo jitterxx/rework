@@ -457,7 +457,7 @@ class Reference(Base, rw_parent):
             r_status[0] = True
             r_status[1] = 'Reference object ID: ' + str(self.id) + ' writed.'
 
-            """ Вызываем функцию проверки бизнес правил """
+            """ Вызываем функцию проверки бизнес правил при появлении нового объекта"""
             rwQueue.apply_rules.delay(self.source_uuid,self.source_type,self.target_uuid,self.target_type)
 
         return r_status
