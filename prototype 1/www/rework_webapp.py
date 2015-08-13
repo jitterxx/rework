@@ -472,6 +472,7 @@ class KTree(object):
         session_context = cherrypy.session.get('session_context')
         session_context['parent_id'] = parent_id
         session_context['parent_name'] = name
+        session_context['type'] = "custom"
         session = rwObjects.Session()
         obj = rwObjects.KnowledgeTree()
         obj_keys = obj.get_attrs()
@@ -494,7 +495,6 @@ class KTree(object):
         print session_context
         print "Переадресация на show_object... ",url
 
-
         params = dict()
 
         try:
@@ -503,6 +503,7 @@ class KTree(object):
             params['description'] = data['description']
             params['tags'] = data['tags']
             params['expert'] = session_context['login']
+            params['type'] = data['type']
         except Exception as e:
             raise(e)
         else:
@@ -532,7 +533,6 @@ class KTree(object):
             raise(e)
         else:
             print status
-
 
         session.close()
         raise cherrypy.HTTPRedirect(url)

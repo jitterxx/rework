@@ -35,7 +35,21 @@ rwChannel_type = ["email", "facebook", "phone", "vk"]
 LEARN_PATH = "learn_machine/"
 mongo_uri = 'mongodb://localhost/rsa'
 sql_uri = 'mysql://rework:HtdjhR123@localhost/rework?charset=utf8'
+
+"""
+STANDARD_OBJECTS_TYPES - список типов объектов (для всех классов кроме DynamicObjects это свойство __tablename__,
+для DynamicObjects - значение свойства objects_class)
+которые автоматически линкуются к стандартным веткам ДЗ. Стандартные ветки ДЗ, в базе имеют заполненное поле
+objects_class содержащее список типов объектов, которые автоматически с ними линкуются.
+"""
 STANDARD_OBJECTS_TYPES = ['accounts','employees','message']
+
+"""
+FOR_CLASSIFY - список типов объектов к которым применяются классификаторы.
+Классификаторы определяют кастомный узел в ДЗ знаний к которому можно отнести данный объект.
+Кастомный узел ДЗ - это создаваемый пользователями узлы по определенной тематике.
+"""
+FOR_CLASSIFY = ['message']
 
 """
 Подключение БД и MongoDB
@@ -900,9 +914,10 @@ class KnowledgeTree(Base, rw_parent):
     ALL_FIELDS = {'name': 'Название', 'description': 'Описание',
                   'tags': 'Теги', 'expert': 'Ответственный',
                   'id': 'id', 'uuid': 'Идентификатор',
-                  'parent_id': 'Родительский раздел', 'tags_clf': 'tags_clf'}
+                  'parent_id': 'Родительский раздел', 'tags_clf': 'tags_clf',
+                  'objects_class':'Автоматически привязываются', 'type': 'Тип узла'}
     VIEW_FIELDS = ['name', 'description', 'tags', 'expert']
-    ADD_FIELDS = ['parent_id','name', 'description', 'tags', 'expert']
+    ADD_FIELDS = ['type','parent_id','name', 'description', 'tags', 'expert']
 
     id = Column(sqlalchemy.Integer, primary_key=True)
     uuid = Column(sqlalchemy.String(50), default=uuid.uuid1())
@@ -913,6 +928,7 @@ class KnowledgeTree(Base, rw_parent):
     expert = Column(sqlalchemy.String(256))
     tags_clf = Column(sqlalchemy.String(256), default="")
     objects_class = Column(sqlalchemy.String(256), default="")
+    type = Column(sqlalchemy.String(256), default="")
 
     def __init__(self):
         self.uuid = uuid.uuid1()

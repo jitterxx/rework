@@ -190,5 +190,11 @@ def apply_rules(source_uuid, source_type, target_uuid, target_type):
         rwObjects.link_objects(session, classes[tt], target_uuid)
         pass
 
+
+    """
+    Класифицируем объекты типы которых указаны в константе FOR_CLASSIFY.
+    """
+    for_classify = rwObjects.FOR_CLASSIFY
+
     session.close()
     return "OK"

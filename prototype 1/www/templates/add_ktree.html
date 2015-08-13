@@ -16,7 +16,7 @@
                 % for key in create_f:
                     	<tr>
                     	 <td> ${all_f[key]}</td>
-                            % if key == "parent_id":
+                            % if key in ["parent_id","type"]:
                     	 <td>${session_context['parent_name']}<input type="hidden" value="${session_context[key]}" name=${key} /></td>
                             % else:
                     	 <td> <input type="text" value="" name=${key} /></td>
