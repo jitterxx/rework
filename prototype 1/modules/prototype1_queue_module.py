@@ -130,24 +130,29 @@ def apply_rules(source_uuid, source_type, target_uuid, target_type):
             filter(rwObjects.DynamicObject.uuid == source_uuid).one()
         tt = response.obj_type
 
-        """Правило 1. Acc создает Msg
-            Если S = Account и T = Message, то связываем Сотрудника владеющего аккаунтом и сообщение.
-                Владелец аккаунта всегда один и связан с ним связью весом 0.
+        """
+        Objects Rule #1
+        Acc создает Msg
+        Если S = Account и T = Message, то связываем Сотрудника владеющего аккаунтом и сообщение.
+        Владелец аккаунта всегда один и связан с ним связью весом 0.
          """
     if st == "accounts" and tt == "message":
         try:
             response = session.query(rwObjects.Reference). \
-                filter(rwObjects.and_(0 == rwObjects.Reference.link,
-                                      rwObjects.Reference.target_uuid == source_uuid)).one()
+                filter(rwObjects.and_(0 == rwObjects.Reference.link,\
+                                      rwObjects.Reference.target_uuid == source_uuid,\
+                                      rwObjects.Reference.source_type == 'employees')).one()
         except Exception as e:
             raise Exception(str(e))
         else:
             owner_uuid = response.source_uuid
+            print "Objects Rule #1"
             print "Линкуем %s с %s " % (owner_uuid, target_uuid)
-        """Делаем линкование объектов """
-        rwObjects.link_objects(session, owner_uuid, target_uuid)
+            """Делаем линкование объектов """
+            rwObjects.link_objects(session, owner_uuid, target_uuid)
 
         """
+        Objects Rule #2
         Правило 2. Empl создает Empl
         Если S = Employee и T = Employee, то связываем нового пользователя с Компанией.
             Пользователя создает суперюзер, он связан со своей компанией линком весом 0.
@@ -157,6 +162,7 @@ def apply_rules(source_uuid, source_type, target_uuid, target_type):
         pass
 
         """
+        Objects Rule #3
         Правило 3. Empl создает Acc
         Если S = Employee и T = Account, то связываем новый Аккаунт с Пользователем.
         """
@@ -165,6 +171,7 @@ def apply_rules(source_uuid, source_type, target_uuid, target_type):
         pass
 
     """
+    Knowledge Rule #1
     Линкуем стандартные объекты в момент создания со стандартными ветками дерева знаний.
     Стандартные типы объектов перечисленны в STANDARD_OBJECT_TYPES.
     Если ветки в ДЗ нет, то она создается в корне дерева.
@@ -187,6 +194,7 @@ def apply_rules(source_uuid, source_type, target_uuid, target_type):
     print standard
     print tt
     if tt in standard and tt in classes.keys():
+        print "Knowledge Rule #1"
         rwObjects.link_objects(session, classes[tt], target_uuid)
         pass
 
