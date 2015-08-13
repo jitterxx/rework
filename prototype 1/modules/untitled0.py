@@ -71,28 +71,25 @@ session.close()
 
 session = rwObjects.Session()
 
-tt = 'message'
-target_uuid = '80fe9474-4014-11e5-953b-f46d04d35cbd'
+print rwObjects.get_by_uuid('6d680e36-4113-11e5-a7d6-f46d04d35cbd')[0]
+print rwObjects.get_by_uuid('6d680e36-4113-11e5-a7d6-f46d04d35cbd')[0].name
 
-standard = rwObjects.STANDARD_OBJECTS_TYPES
-classes = dict()
-try:
-    response = session.query(rwObjects.KnowledgeTree).all()
-except Exception as e:
-    raise Exception("Ошибка чтения ДЗ." + str(e))
-else:
-    pass
-for leaf in response:
-    cls = leaf.get_objects_classes()
-    for c in cls:
-        if c not in classes.keys():
-            classes[c] = leaf.uuid
 
-print classes.keys()
-print standard
-print tt
-if tt in standard and tt in classes.keys():
-    rwObjects.link_objects(session, classes[tt], target_uuid)
-    pass
+response = session.query(rwObjects.Reference).\
+    filter(rwObjects.and_(0 == rwObjects.Reference.link,\
+                          rwObjects.Reference.source_uuid == '6d680e36-4113-11e5-a7d6-f46d04d35cbd')).all()
+
+print response
+
+for i in response:
+    if i.__tablename__ == 'references':
+        print i.source_type
+        if i.source_type == 'employees':
+            print i.source_uuid,rwObjects.get_by_uuid(i.source_uuid)[0].login
+        print i.target_type
+        if i.target_type == 'employees':
+            print i.target_uuid,rwObjects.get_by_uuid(i.target_uuid)[0].login
+        print ""
+
 
 session.close()
