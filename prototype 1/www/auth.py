@@ -31,10 +31,7 @@ def check_credentials(username, password):
     #    return u"Incorrect username or password."
     
     user = rwObjects.get_employee_by_login(username)
-    print user.login
-    print user.password
-    print password
-    
+
     if user is None:
         return u"Username %s is unknown to me." % username
     elif user.password != password:
@@ -97,12 +94,15 @@ def member_of(groupname):
     def check():
         # replace with actual check if <username> is in <groupname>
         c = False
-        if cherrypy.request.login == 'superuser@rsa' and groupname in ['admin','users']:
+        if cherrypy.request.login in admin_names and groupname == 'admin':
             c = True
-        if cherrypy.request.login == 'petr@rsa' and groupname in ['users']:
+        if cherrypy.request.login in users_names and groupname == 'users':
             c = True
-
         return c
+
+    admin_names = ['superuser@flw']
+    users_names = ['superuser@flw']
+
     return check
 
 def name_is(reqd_username):
