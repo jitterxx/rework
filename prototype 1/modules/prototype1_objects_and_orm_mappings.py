@@ -18,6 +18,7 @@ import base64
 from sklearn.externals import joblib
 import inspect
 import prototype1_queue_module as rwQueue
+import prototype1_type_classifiers as rwLearn
 import pymongo
 import re
 
@@ -171,6 +172,7 @@ def create_company():
     """
     Создаем структуру навигатора знаний.
     """
+    print "Создаем корневой раздел Дерева Знаний: Все"
     params = {'parent_id': 0, 'name': 'Все', 'description': 'Все', 'tags': '', 'expert': superuser.login,
               'type': 'system'}
     try:
@@ -181,6 +183,7 @@ def create_company():
         print status
         parent_id = obj.id
 
+    print "Создаем системный раздел Дерева Знаний: Сообщения"
     params = {'parent_id': parent_id, 'name': 'Сообщения', 'description': 'Сообщения', 'tags': '',
               'expert': superuser.login,'type': 'system','objects_class':'messages'}
     try:
@@ -190,6 +193,7 @@ def create_company():
     else:
         print status
 
+    print "Создаем системный раздел Дерева Знаний: Аккануты"
     params = {'parent_id': parent_id, 'name': 'Аккаунты', 'description': 'Аккаунты', 'tags': '',
               'expert': superuser.login,'type': 'system'}
     try:
@@ -198,6 +202,10 @@ def create_company():
         raise (e)
     else:
         print status
+
+    print "Создаем базовый классификатор для кастомных разделов Дерева Знаний."
+    status,clf = rwLearn.init_classifier(session,'svc')
+    print status[0],status[1]
 
     session.close()
 
@@ -894,6 +902,8 @@ def get_email_message(session, uuid):
 class Classifier(Base, rw_parent):
     """
     Хранит список классификаторов.
+    Классификаторы нужны для автоматического определения принадлежности к сетке ДЗ типа custom.
+    Все классификаторы используются для классификации всех типов объектов входящих в FRO_CLASSSIFY
     """
 
     __tablename__ = "classifiers"
@@ -1054,6 +1064,19 @@ class KnowledgeTree(Base, rw_parent):
             # ("Родительский узел не найден."+str(e))
         else:
             return query.id
+
+
+def get_ktree_custom(session):
+    custom_uuid = list()
+    try:
+        res = session.query(KnowledgeTree).\
+            filter(KnowledgeTree.type == 'custom').all()
+    except Exception as e:
+        return [False,"Ошибка доступа к базе классификаторов при обучении."]
+    else:
+        for r in res:
+            custom_uuid.append(r.uuid)
+    return custom_uuid,res
 
 
 class Question(Base, rw_parent):
@@ -1302,6 +1325,8 @@ def create_new_object(session, object_type, params, source):
                 new_obj.__dict__[f] = params[f]
     elif object_type == "knowledge_tree":
         new_obj = KnowledgeTree()
+        # создаем классификатор
+        #clf = rwLearn.init_classifier('svc')
         for f in new_obj.ADD_FIELDS:
             if f in params.keys() and params[f] != "":
                 new_obj.__dict__[f] = params[f]

@@ -9,6 +9,7 @@ import datetime
 import prototype1_objects_and_orm_mappings as rwObjects
 import prototype1_queue_module as rwQueue
 import prototype1_email_module as rwEmail
+import prototype1_type_classifiers as rwLearn
 import json
 import sys
 import time
@@ -20,15 +21,13 @@ import matplotlib.pyplot as plt
 reload(sys)
 sys.setdefaultencoding("utf-8")
 
-
-
 session = rwObjects.Session()
-#m = rwObjects.get_email_message(session,['af3f1230-3f71-11e5-be81-f46d04d35cbd'])
-#obj = rwObjects.get_by_uuid('b1c4a3e2-3c58-11e5-b1af-f46d04d35cbd')[0]
+# m = rwObjects.get_email_message(session,['af3f1230-3f71-11e5-be81-f46d04d35cbd'])
+# obj = rwObjects.get_by_uuid('b1c4a3e2-3c58-11e5-b1af-f46d04d35cbd')[0]
 
 
 
-
+"""
 
 client = pymongo.MongoClient()
 db = client['test']
@@ -43,7 +42,7 @@ emails = db.test
 
 #print db.collection_names()
 #print emails.find()
-"""
+
 for e in emails.find():
     print e.keys()
     print type(e['_id'])
@@ -68,12 +67,36 @@ for e in emails.find():
 session.close()
 """
 
-
 session = rwObjects.Session()
 
-print rwObjects.get_by_uuid('75cc37d6-41b9-11e5-916b-f46d04d35cbd')[0]
+# status,clf = rwLearn.init_classifier(session,'svc')
+# print status
+# print clf
+
+dataset = ['Ты видел деву на скале В одежде белой над волнами Когда бушуя в бурной мгле Играло море с берегами И '
+           'ветер бился и летал С ее летучим покрывалом',\
+           'Отговорила роща золотая Березовым веселым языком И журавли печально пролетая Уж не жалеют больше ни о '
+           'ком']
+targets = ['Пушкин', 'Есенин']
+
+#rwLearn.fit_classifier('ed38261a-41cb-11e5-aae5-f46d04d35cbd', dataset, targets)
+
+test = ['Когда луч молний озарял Ее всечасно блеском алым']
+test2 = ['О всех ушедших грезит конопляник С широким месяцем над голубым прудом']
+test3 = ['От того и оснеженная Даль за окнами тепла']
+
+#text = rwObjects.get_by_uuid('536c5204-41c1-11e5-8564-f46d04d35cbd')[0]
+#print str(text.text_plain)
 
 
+#probe,Z = rwLearn.predict('ed38261a-41cb-11e5-aae5-f46d04d35cbd',[text.text_plain])
 
+#print 'Вероятности :',probe
+#print 'Ответы :',Z[0]
+
+
+s = rwLearn.retrain_classifier(session,'ed38261a-41cb-11e5-aae5-f46d04d35cbd')
+print s[0]
+print s[1]
 
 session.close()
