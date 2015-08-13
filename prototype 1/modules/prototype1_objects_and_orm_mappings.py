@@ -10,7 +10,7 @@ from sqlalchemy import Table, Column, Integer, ForeignKey
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer
-from sqlalchemy import or_,and_,desc
+from sqlalchemy import or_, and_, desc
 import uuid
 import datetime
 import json
@@ -25,7 +25,6 @@ import sys
 
 reload(sys)
 sys.setdefaultencoding("utf-8")
-
 
 """
 Constants
@@ -42,14 +41,14 @@ STANDARD_OBJECTS_TYPES - список типов объектов (для все
 которые автоматически линкуются к стандартным веткам ДЗ. Стандартные ветки ДЗ, в базе имеют заполненное поле
 objects_class содержащее список типов объектов, которые автоматически с ними линкуются.
 """
-STANDARD_OBJECTS_TYPES = ['accounts','employees','message']
+STANDARD_OBJECTS_TYPES = ['accounts', 'employees', 'messages']
 
 """
 FOR_CLASSIFY - список типов объектов к которым применяются классификаторы.
 Классификаторы определяют кастомный узел в ДЗ знаний к которому можно отнести данный объект.
 Кастомный узел ДЗ - это создаваемый пользователями узлы по определенной тематике.
 """
-FOR_CLASSIFY = ['message']
+FOR_CLASSIFY = ['messages']
 
 """
 Подключение БД и MongoDB
@@ -58,11 +57,8 @@ Base = sqlalchemy.ext.declarative.declarative_base()
 Engine = sqlalchemy.create_engine(sql_uri)
 Session = sqlalchemy.orm.sessionmaker(bind=Engine)
 
-
 Mongo_client = pymongo.MongoClient(mongo_uri)
 Mongo_db = Mongo_client.get_default_database()
-
-
 
 """
 reWork classes
@@ -82,9 +78,24 @@ def create_company():
     """
 
     session = Session()
+    rework = Company()
+    rework.name = "reWork"
+    rework.prefix = "_re"
+    session.add(rework)
+    session.commit()
+
+    ref = Reference(source_uuid=rework.uuid,
+                    source_type=rework.__tablename__,
+                    source_id=rework.id,
+                    target_uuid=rework.uuid,
+                    target_type=rework.__tablename__,
+                    target_id=rework.id,
+                    link=1)
+    ref.create(session)
 
     company_name = unicode(raw_input("Введите название компании: "))
     company_prefix = unicode(raw_input("Введите префикс (до 3-х символов): "))
+
 
     new_company = Company()
     new_company.name = str(company_name)
@@ -106,9 +117,9 @@ def create_company():
         print "Компания \"" + str(new_company.name) + "\" внесена в базу."
 
     # Записываем событие создания Компании
-    ref = Reference(source_uuid="reWork",
-                    source_type="companies",
-                    source_id=1,
+    ref = Reference(source_uuid=rework.uuid,
+                    source_type=rework.__tablename__,
+                    source_id=rework.id,
                     target_uuid=new_company.uuid,
                     target_type=new_company.__tablename__,
                     target_id=new_company.id,
@@ -148,23 +159,47 @@ def create_company():
         print "Пользователь \"" + str(superuser.login) + "\" внесен в базу."
 
     # Записываем событие создания Компании
-    ref = Reference(source_uuid="reWork",
-                    source_type="companies",
-                    source_id=1,
-                    target_uuid=superuser.uuid,
-                    target_type=superuser.__tablename__,
-                    target_id=superuser.id,
-                    link=1)
-    ref.create(session)
-
     ref = Reference(source_uuid=new_company.uuid,
                     source_type=new_company.__tablename__,
                     source_id=new_company.id,
                     target_uuid=superuser.uuid,
                     target_type=superuser.__tablename__,
                     target_id=superuser.id,
-                    link=0)
+                    link=1)
     ref.create(session)
+
+    """
+    Создаем структуру навигатора знаний.
+    """
+    params = {'parent_id': 0, 'name': 'Все', 'description': 'Все', 'tags': '', 'expert': superuser.login,
+              'type': 'system'}
+    try:
+        status, obj = create_new_object(session, "knowledge_tree", params, superuser)
+    except Exception as e:
+        raise (e)
+    else:
+        print status
+        parent_id = obj.id
+
+    params = {'parent_id': parent_id, 'name': 'Сообщения', 'description': 'Сообщения', 'tags': '',
+              'expert': superuser.login,'type': 'system','objects_class':'messages'}
+    try:
+        status, obj = create_new_object(session, "knowledge_tree", params, superuser)
+    except Exception as e:
+        raise (e)
+    else:
+        print status
+
+    params = {'parent_id': parent_id, 'name': 'Аккаунты', 'description': 'Аккаунты', 'tags': '',
+              'expert': superuser.login,'type': 'system'}
+    try:
+        status, obj = create_new_object(session, "knowledge_tree", params, superuser)
+    except Exception as e:
+        raise (e)
+    else:
+        print status
+
+    session.close()
 
 
 class rw_parent():
@@ -207,9 +242,7 @@ class rw_parent():
         В классе при необходимости должна быть переписана на реальную проверку.
         :return : Всегда возвращает список -- [True,"OK"]
         """
-        return [True,"OK"]
-
-
+        return [True, "OK"]
 
 
 class Company(Base, rw_parent):
@@ -354,26 +387,26 @@ class Account(Base, rw_parent):
     """
 
     __tablename__ = 'accounts'
-    DIRS = {'Yandex':'{"inbox": "INBOX", "sent": "&BB4EQgQ,BEAEMAQyBDsENQQ9BD0ESwQ1-"}',
-                     'Gmail':'{"inbox":"INBOX","sent":"[Gmail]/&BB4EQgQ,BEAEMAQyBDsENQQ9BD0ESwQ1-"}'}
+    DIRS = {'Yandex': '{"inbox": "INBOX", "sent": "&BB4EQgQ,BEAEMAQyBDsENQQ9BD0ESwQ1-"}',
+            'Gmail': '{"inbox":"INBOX","sent":"[Gmail]/&BB4EQgQ,BEAEMAQyBDsENQQ9BD0ESwQ1-"}'}
 
     ALL_FIELDS = {
-    "id":"id",
-    "uuid":"Идентификатор",
-    "acc_type":"Тип аккаунта",
-    "description":"Описание",
-    "server":"Имя сервера",
-    "port":"Порт",
-    "login":"Логин",
-    "password":"Пароль",
-    "dirs":"Каталоги для проверки",
-    "last_check":"Дата и время последней проверки",
-    "employee_id":"Связан с сотрудником"
+        "id": "id",
+        "uuid": "Идентификатор",
+        "acc_type": "Тип аккаунта",
+        "description": "Описание",
+        "server": "Имя сервера",
+        "port": "Порт",
+        "login": "Логин",
+        "password": "Пароль",
+        "dirs": "Каталоги для проверки",
+        "last_check": "Дата и время последней проверки",
+        "employee_id": "Связан с сотрудником"
     }
-    VIEW_FIELDS = ['acc_type', 'description','server','port','dirs','login', 'password','last_check']
-    ADD_FIELDS = ['acc_type', 'description','server','port','dirs','login', 'password']
-    EDIT_FIELDS = ['description','server','port','dirs','login', 'password']
-    SHORT_VIEW_FIELDS = ['login','acc_type', 'description']
+    VIEW_FIELDS = ['acc_type', 'description', 'server', 'port', 'dirs', 'login', 'password', 'last_check']
+    ADD_FIELDS = ['acc_type', 'description', 'server', 'port', 'dirs', 'login', 'password']
+    EDIT_FIELDS = ['description', 'server', 'port', 'dirs', 'login', 'password']
+    SHORT_VIEW_FIELDS = ['login', 'acc_type', 'description']
     NAME = "Аккаунт"
 
     id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
@@ -384,7 +417,7 @@ class Account(Base, rw_parent):
     port = sqlalchemy.Column(sqlalchemy.String(6))
     login = sqlalchemy.Column(sqlalchemy.String(50))
     password = sqlalchemy.Column(sqlalchemy.String(20))
-    dirs = Column(sqlalchemy.String(256),default=DIRS["Gmail"])
+    dirs = Column(sqlalchemy.String(256), default=DIRS["Gmail"])
     last_check = Column(sqlalchemy.DATETIME(), default=datetime.datetime.now())
     employee_id = Column(Integer, ForeignKey('employees.id'))
 
@@ -400,8 +433,7 @@ class Account(Base, rw_parent):
         self.last_check = datetime.datetime.now()
 
     def check(self):
-
-        return [True,""]
+        return [True, ""]
 
 
 class Client(Base, rw_parent):
@@ -482,7 +514,7 @@ class Reference(Base, rw_parent):
             r_status[1] = 'Reference object ID: ' + str(self.id) + ' writed.'
             if self.link == 1:
                 """ Вызываем функцию проверки автоматических правил при появлении нового объекта"""
-                rwQueue.apply_rules.delay(self.source_uuid,self.source_type,self.target_uuid,self.target_type)
+                rwQueue.apply_rules.delay(self.source_uuid, self.source_type, self.target_uuid, self.target_type)
 
         return r_status
 
@@ -550,7 +582,7 @@ class Used_case(Base, rw_parent):
     used_for = Column(sqlalchemy.String(256))
 
 
-class DynamicObject(Base,rw_parent):
+class DynamicObject(Base, rw_parent):
     """
     Динамические объекты.
     В SQL базе только параметры, остальное в mongodb.
@@ -575,7 +607,7 @@ class DynamicObject(Base,rw_parent):
         """
         self.uuid = uuid.uuid1()
 
-    def write(self,session,obj):
+    def write(self, session, obj):
         session_flag = False
 
         if not session:
@@ -585,7 +617,7 @@ class DynamicObject(Base,rw_parent):
         try:
             self.obj_type = obj['obj_type']
         except Exception as e:
-            raise("Не указан тип объекта в свойстве obj_type. " + str(e))
+            raise ("Не указан тип объекта в свойстве obj_type. " + str(e))
         else:
             pass
 
@@ -597,7 +629,7 @@ class DynamicObject(Base,rw_parent):
         try:
             record_id = collection.insert_one(obj).inserted_id
         except Exception as e:
-            raise("Не удалось сохранить объект в базе MongoDB. " + str(e))
+            raise ("Не удалось сохранить объект в базе MongoDB. " + str(e))
         else:
             print "Объект сохранен " + str(record_id)
 
@@ -606,11 +638,11 @@ class DynamicObject(Base,rw_parent):
             """
             # Записываем DynamicObject
             session.add(self)
-            status = [True,""]
+            status = [True, ""]
             try:
                 session.commit()
             except Exception:
-                raise([False,"Message object ID: " + str(self.id) + " NOT writed."])
+                raise ([False, "Message object ID: " + str(self.id) + " NOT writed."])
             else:
                 status[0] = True
                 status[1] = 'Message object ID: ' + str(self.id) + ' writed.'
@@ -628,25 +660,25 @@ class DynamicObject(Base,rw_parent):
         :return: возвращает объект типа DynamicObject с заполненными полями. Если не найден, возвращает в None.
         """
         self.VIEW_FIELDS = []
-        #Определяем название коллекции в которой находиться объект
+        # Определяем название коллекции в которой находиться объект
         collection = Mongo_db[self.collection]
-        query = {'uuid':str(self.uuid)}
+        query = {'uuid': str(self.uuid)}
 
         try:
             obj = collection.find_one(query)
         except Exception as e:
-            raise([False,"Ошибка чтения объекта. " + str(e)])
+            raise ([False, "Ошибка чтения объекта. " + str(e)])
         else:
-            #Заполняем параметры
-            #print "\nVIEW FIELDS ",self.VIEW_FIELDS
-            #Собираем в объект все ключи и их значения
+            # Заполняем параметры
+            # print "\nVIEW FIELDS ",self.VIEW_FIELDS
+            # Собираем в объект все ключи и их значения
             for key in obj.keys():
                 self.__dict__[key] = obj[key]
                 self.ALL_FIELDS[key] = key
-            #print "\nВсе ключи ",self.__dict__.keys()
+            # print "\nВсе ключи ",self.__dict__.keys()
 
-            if self.obj_type == 'message':
-                view_f = ['from','to','cc','bcc', 'subject', 'raw_text_html']
+            if self.obj_type == 'messages':
+                view_f = ['from', 'to', 'cc', 'bcc', 'subject', 'raw_text_html']
                 self.NAME = 'Сообщение'
                 self.ALL_FIELDS['from'] = 'От кого'
                 self.ALL_FIELDS['to'] = 'Кому'
@@ -654,18 +686,17 @@ class DynamicObject(Base,rw_parent):
                 self.ALL_FIELDS['bcc'] = 'Скрытая копия'
                 self.ALL_FIELDS['subject'] = 'Тема'
                 self.ALL_FIELDS['raw_text_html'] = 'Текст'
-                self.SHORT_VIEW_FIELDS = ['from','to','subject']
+                self.SHORT_VIEW_FIELDS = ['from', 'to', 'subject']
 
 
-            #Удаляем ключи не присутствующие в данном объекте
+            # Удаляем ключи не присутствующие в данном объекте
             for key in view_f:
                 if key in self.__dict__.keys():
                     self.VIEW_FIELDS.append(key)
 
-            #print "\n NEW VIEW FIELDS ",self.VIEW_FIELDS
+                    # print "\n NEW VIEW FIELDS ",self.VIEW_FIELDS
 
-
-    def check(self,query):
+    def check(self, query):
         """
         Проверяем наличие записей в базе с указанными параметрами.
         :param query: Параметры в виде словаря.
@@ -679,23 +710,22 @@ class DynamicObject(Base,rw_parent):
             return False
 
 
-
 class UnstructuredObject(rw_parent):
     """
     Класс для работы с объектами из MongoDB
     """
 
-    def read(self,uuid,collection):
+    def read(self, uuid, collection):
         """
         Прочитать объект из базы.
         :param uuid: глобальный идентификатор объекта в системе. Равен _id в mongoDB.
         :param obj_type: указывает на коллекцию в которой находится объект
         :return: возвращает объект типа DynamicObject с заполненными полями. Если не найден, возвращает в None.
         """
-        #Определяем название коллекции в которой находиться объект
+        # Определяем название коллекции в которой находиться объект
 
-        #Читаем объект
-        #Заполняем параметры
+        # Читаем объект
+        # Заполняем параметры
         return None
 
     def write(self):
@@ -705,11 +735,11 @@ class UnstructuredObject(rw_parent):
         :return: Возвращает статус операции.
         """
 
-
+"""
 class Message(Base, rw_parent):
     __tablename__ = 'messages'
     NAME = "Сообщение"
-    EDIT_FIELDS = ['viewed','category']
+    EDIT_FIELDS = ['viewed', 'category']
     ALL_FIELDS = {'id': 'id',
                   'uuid': 'Идентификатор',
                   'channel_type': 'Тип',
@@ -717,9 +747,8 @@ class Message(Base, rw_parent):
                   'viewed': 'Просмотрено',
                   'category': 'Категория',
                   'data': 'Сообщение'}
-    VIEW_FIELDS = ['message_id','viewed','category','data']
+    VIEW_FIELDS = ['message_id', 'viewed', 'category', 'data']
     ADD_FIELDS = []
-
 
     id = Column(sqlalchemy.Integer, primary_key=True)
     uuid = Column(sqlalchemy.String(50), default=uuid.uuid1())
@@ -735,10 +764,10 @@ class Message(Base, rw_parent):
         self.viewed = 0
 
     def is_exist_msg(self, session, msg_id):
-        """
+        ""
         Проверяет есть ли в базе сообщение с таким же идентификатором.
         Если есть, возвращает True, если нет False.
-        """
+        ""
         check = False
         try:
             session.query(Message).filter(Message.message_id == msg_id).one()
@@ -751,7 +780,7 @@ class Message(Base, rw_parent):
         return check
 
     def create_email(self, session, source, data_link, msg_id):
-        """
+        ""
         Функция создания объекта Message типа Email.
         На вход получает:
         :param session: -- текущйи объект Session для работы с БД.
@@ -764,7 +793,7 @@ class Message(Base, rw_parent):
         -- Заполняет свойство data объекта Message типа email ссылкой на коллецию. Данные сообщения пишуться в mongoDB.
         -- Создает объект Reference - событие создания объекта(link = 1)
 
-        """
+        ""
 
         r_status = [None, ""]
         t_status = [None, ""]
@@ -796,7 +825,7 @@ class Message(Base, rw_parent):
             t_status[1] = 'Message object ID: ' + str(self.id) + ' writed.'
             t_status[1] = t_status[1] + '\n ' + str(self.uuid)
 
-        """ Создаем Reference на новый объект """
+        "" Создаем Reference на новый объект ""
         ref = Reference(source_uuid=source.uuid,
                         source_type=source.__tablename__,
                         source_id=source.id,
@@ -812,13 +841,13 @@ class Message(Base, rw_parent):
         return t_status, r_status
 
     def get_message_body(self):
-        """
+        ""
         Вызывается в шаблоне для распоковки поля data в сообщении.
         Распаковывает только указаыннве поля: to,from,subject,message-id,raw_text_html, text_html
-        """
+        ""
         body = dict()
         client = pymongo.MongoClient()
-        conn = re.split("\.",str(self.data))
+        conn = re.split("\.", str(self.data))
         db = client[conn[0]]
         msg = db[conn[1]]
 
@@ -834,10 +863,10 @@ class Message(Base, rw_parent):
 
 
 def get_email_message(session, uuid):
-    """
+    ""
     Возвращает распакованные email сообщения по списку переданных UUID.
     Параметр uuid -- список (List) uuid сообщений которые необходимо распаковать.
-    """
+    ""
     messages = {}
 
     if uuid == None:
@@ -860,7 +889,7 @@ def get_email_message(session, uuid):
             session.close()
 
     return messages
-
+"""
 
 class Classifier(Base, rw_parent):
     """
@@ -915,9 +944,9 @@ class KnowledgeTree(Base, rw_parent):
                   'tags': 'Теги', 'expert': 'Ответственный',
                   'id': 'id', 'uuid': 'Идентификатор',
                   'parent_id': 'Родительский раздел', 'tags_clf': 'tags_clf',
-                  'objects_class':'Автоматически привязываются', 'type': 'Тип узла'}
+                  'objects_class': 'Автоматически привязываются', 'type': 'Тип узла'}
     VIEW_FIELDS = ['name', 'description', 'tags', 'expert']
-    ADD_FIELDS = ['type','parent_id','name', 'description', 'tags', 'expert']
+    ADD_FIELDS = ['type', 'parent_id', 'name', 'description', 'tags', 'expert','objects_class']
 
     id = Column(sqlalchemy.Integer, primary_key=True)
     uuid = Column(sqlalchemy.String(50), default=uuid.uuid1())
@@ -941,8 +970,8 @@ class KnowledgeTree(Base, rw_parent):
         resp = list()
         if not self.objects_class:
             return resp
-        for cl in re.split(",",self.objects_class):
-            i = re.split("\.",cl)
+        for cl in re.split(",", self.objects_class):
+            i = re.split("\.", cl)
             if len(i) == 1:
                 resp.append(i[0])
             else:
@@ -976,8 +1005,7 @@ class KnowledgeTree(Base, rw_parent):
         print params
         print "\nКонтекст :"
         print session_context
-        print "Переадресация на show_object... ",url
-
+        print "Переадресация на show_object... ", url
 
     @staticmethod
     def ktree_return_childs(session, parent_id):
@@ -993,24 +1021,23 @@ class KnowledgeTree(Base, rw_parent):
         if parent_id == 0:
             raise Exception("Нельзя указывать parent_id = 0.")
         try:
-            query = session.query(KnowledgeTree).\
+            query = session.query(KnowledgeTree). \
                 filter(KnowledgeTree.id == parent_id).one()
         except sqlalchemy.orm.exc.NoResultFound as e:
             raise e
-            #"Родительский узел не найден."+str(e))
+            # "Родительский узел не найден."+str(e))
         else:
             obj.append(query)
 
-
         try:
-            query = session.query(KnowledgeTree).\
+            query = session.query(KnowledgeTree). \
                 filter(KnowledgeTree.parent_id == parent_id).all()
         except sqlalchemy.orm.exc.NoResultFound:
             print "Больше нет дочерних узлов."
             return obj
         except Exception as e:
             raise e
-                #("Ошибка при чтении дерева из базы. "+str(e))
+            # ("Ошибка при чтении дерева из базы. "+str(e))
         else:
             for each in query:
                 obj.append(each)
@@ -1020,13 +1047,14 @@ class KnowledgeTree(Base, rw_parent):
     @staticmethod
     def get_root(session):
         try:
-            query = session.query(KnowledgeTree).\
+            query = session.query(KnowledgeTree). \
                 filter(KnowledgeTree.parent_id == 0).one()
         except sqlalchemy.orm.exc.NoResultFound as e:
             raise e
-                #("Родительский узел не найден."+str(e))
+            # ("Родительский узел не найден."+str(e))
         else:
             return query.id
+
 
 class Question(Base, rw_parent):
     __doc__ = """
@@ -1066,52 +1094,9 @@ class Question(Base, rw_parent):
 
 
 def test():
-    session = Session()
+    pass
 
-    try:
-        company1 = Company(uuid=str(uuid.uuid1()), name='Test company', prefix='tc_')
 
-    except RuntimeError:
-        print sys.exc_info()
-        session.close()
-
-    else:
-        company1.employees = [Employee(name='Второй ', surname='Сотрудник')]
-        company1.employees.append(Employee(name='Третий ', surname='Сотрудник'))
-
-        session.add(company1)
-        session.commit()
-
-        company1 = Company(uuid=str(uuid.uuid1()), name='2 Test company', prefix='2tc_')
-        session.add(company1)
-
-        session.commit()
-
-        for inst in session.query(Company).all():
-            print inst.id, inst.name, inst.uuid
-
-        for inst in session.query(Employee).all():
-            print inst.id, inst.name, inst.uuid, inst.comp_id
-
-        email_data = {'From': 'sergey@reshim.com', 'Subj': 'Проверка', 'Text': 'Я хочу все знать!\
-                        "Но не все", а только часть.?%%№;!'}
-
-        source = {'uuid': '0000', 'source_type': 'system', 'id': 0}
-
-        msg = Message()
-        msg.create_email(session, source, email_data)
-
-        msg1 = Message()
-
-        try:
-            msg1 = session.query(Message).filter(Message.id == 2).one()
-        except sqlalchemy.orm.exc.NoResultFound:
-            print 'No records.'
-        else:
-            email = json.loads(msg1.data)
-            print email['From'], email['Text']
-        finally:
-            session.close()
 
 
 def get_by_uuid(uuid):
@@ -1153,7 +1138,7 @@ def get_by_uuid(uuid):
         status[1] = "Нет класса для этого объекта. " + str(e)
         raise Exception(status[0], status[1])
 
-    #print "obj_class :",obj_class
+    # print "obj_class :",obj_class
 
     # Ищем объект
     try:
@@ -1170,12 +1155,12 @@ def get_by_uuid(uuid):
         # print query
         t = query.target_type
 
-        #print "type(query) :",type(query)
-        #print "query type : ",t
-        #print "obj_class[t] :",obj_class[t]
+        # print "type(query) :",type(query)
+        # print "query type : ",t
+        # print "obj_class[t] :",obj_class[t]
 
         kk = globals()[obj_class[t]]
-        #print kk,type(kk)
+        # print kk,type(kk)
 
     try:
         obj = session.query(kk).filter_by(uuid=uuid).one()
@@ -1186,11 +1171,11 @@ def get_by_uuid(uuid):
     else:
         pass
         obj.read()
-        #print type(obj)
-        #print obj
+        # print type(obj)
+        # print obj
 
     session.close()
-    return obj,status
+    return obj, status
 
 
 def set_by_uuid(uuid, data):
@@ -1282,7 +1267,7 @@ def set_by_uuid(uuid, data):
     return status
 
 
-def create_new_object(session, object_type,params, source):
+def create_new_object(session, object_type, params, source):
     """
     :param session: Session()
     Идентификатор сессии ORM. Если не передается, то ожидается None и создается новый. Если передан, то используется он.
@@ -1293,7 +1278,7 @@ def create_new_object(session, object_type,params, source):
     :param source: Любой объект имеющий UUID из модуля rwObjects
     :return: list Список из статуса и сам объект.
     """
-    status = [True,""]
+    status = [True, ""]
     session_flag = False
     new_obj = None
 
@@ -1322,8 +1307,8 @@ def create_new_object(session, object_type,params, source):
                 new_obj.__dict__[f] = params[f]
 
     else:
-        status[False,"Объект типа " + object_type + " создать нельзя."]
-        return status,None
+        status[False, "Объект типа " + object_type + " создать нельзя."]
+        return status, None
 
     """
     Проверяем существование объекта с такими параметрами. Если существует, возвращает статус операции и None.
@@ -1331,13 +1316,13 @@ def create_new_object(session, object_type,params, source):
     """
     status = new_obj.check()
     if not status[0]:
-        return status,None
+        return status, None
 
     try:
         session.add(new_obj)
         session.commit()
     except Exception as e:
-        return [False,"Ошибка записи в базу."+str(e)],None
+        return [False, "Ошибка записи в базу." + str(e)], None
     else:
         # Записываем событие создания объекта
         ref = Reference(source_uuid=source.uuid,
@@ -1352,10 +1337,10 @@ def create_new_object(session, object_type,params, source):
         if session_flag:
             session.close()
 
-    return status,new_obj
+    return status, new_obj
 
 
-def link_objects(session,source_uuid,target_uuid):
+def link_objects(session, source_uuid, target_uuid):
     """
     :param session: Session ORM. Если не передаеться, то поставить None.
     :param source: UUID исходного объекта.
@@ -1372,25 +1357,26 @@ def link_objects(session,source_uuid,target_uuid):
 
     """Проверяем наличие связи """
     try:
-        response = session.query(Reference).\
-            filter(and_(Reference.source_uuid == source.uuid,\
-                        Reference.source_type == source.__tablename__,\
-                        Reference.source_id == source.id,\
-                        Reference.target_uuid == target.uuid,\
-                        Reference.target_type == target.__tablename__)).all()
+        response = session.query(Reference). \
+            filter(and_(Reference.source_uuid == source.uuid, \
+                        Reference.source_type == source.__tablename__, \
+                        Reference.source_id == source.id, \
+                        Reference.target_uuid == target.uuid, \
+                        Reference.target_type == target.__tablename__,\
+                        Reference.link == 0)).all()
     except Exception as e:
         raise Exception("Ошибка чтения базы связей. " + str(e))
     else:
         pass
     if not response:
         """ Создаем связь """
-        ref = Reference(source_uuid = source.uuid,
-                                  source_type = source.__tablename__,
-                                  source_id = source.id,
-                                  target_uuid = target.uuid,
-                                  target_type= target.__tablename__,
-                                  target_id = target.id,
-                                  link=0)
+        ref = Reference(source_uuid=source.uuid,
+                        source_type=source.__tablename__,
+                        source_id=source.id,
+                        target_uuid=target.uuid,
+                        target_type=target.__tablename__,
+                        target_id=target.id,
+                        link=0)
         status = ref.create(session)
     else:
         raise Exception("Такая связь уже существует.")

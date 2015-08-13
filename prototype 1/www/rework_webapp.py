@@ -163,6 +163,7 @@ class Account(object):
         session = rwObjects.Session()
 
         try:
+            print "Создаем новый аккаунт."
             status, obj = rwObjects.create_new_object(session,"accounts",params,source)
         except Exception as e:
             print e
@@ -179,7 +180,7 @@ class Account(object):
             Связываем новый аккаунт с его пользователем.
             Пользователь передается в session_context['employee_uuid']
             """
-            """Делаем линкование объектов """
+            print "Делаем линкование с пользователем при создании аккаунта."
             rwObjects.link_objects(session, employee_uuid, obj.uuid)
 
         session.close()

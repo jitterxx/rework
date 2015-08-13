@@ -71,25 +71,9 @@ session.close()
 
 session = rwObjects.Session()
 
-print rwObjects.get_by_uuid('6d680e36-4113-11e5-a7d6-f46d04d35cbd')[0]
-print rwObjects.get_by_uuid('6d680e36-4113-11e5-a7d6-f46d04d35cbd')[0].name
+print rwObjects.get_by_uuid('75cc37d6-41b9-11e5-916b-f46d04d35cbd')[0]
 
 
-response = session.query(rwObjects.Reference).\
-    filter(rwObjects.and_(0 == rwObjects.Reference.link,\
-                          rwObjects.Reference.source_uuid == '6d680e36-4113-11e5-a7d6-f46d04d35cbd')).all()
-
-print response
-
-for i in response:
-    if i.__tablename__ == 'references':
-        print i.source_type
-        if i.source_type == 'employees':
-            print i.source_uuid,rwObjects.get_by_uuid(i.source_uuid)[0].login
-        print i.target_type
-        if i.target_type == 'employees':
-            print i.target_uuid,rwObjects.get_by_uuid(i.target_uuid)[0].login
-        print ""
 
 
 session.close()

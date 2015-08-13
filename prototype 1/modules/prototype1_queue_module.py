@@ -63,9 +63,11 @@ def get_messages_for_account(account_uuid):
             # print emails
         except Exception as e:
             status = [False, 'Ошибка получения сообщений.\n' + str(e)]
+            print status[1]
             return status[1]
         else:
             pass
+            print "Сообщения получены."
 
         """
         Запись сообщения в SQL и МонгоДБ
@@ -73,7 +75,7 @@ def get_messages_for_account(account_uuid):
         for email in emails.values():
             do = rwObjects.DynamicObject()
             email['channel_type'] = rwObjects.rwChannel_type[0]
-            email['obj_type'] = do.obj_type = do.collection = 'message'
+            email['obj_type'] = do.obj_type = do.collection = 'messages'
 
             if not do.check({"message-id": email['message-id']}):
                 print "----------Начало записи в Монго------------------"
@@ -82,7 +84,7 @@ def get_messages_for_account(account_uuid):
                 print "---------- Окончание записи в Монго------------------"
 
                 if s[0]:
-                    """ Создаем Reference на новый объект """
+                    print "Создаем Reference на новый объект "
                     ref = rwObjects.Reference(source_uuid=account.uuid,
                                               source_type=account.__tablename__,
                                               source_id=account.id,
@@ -133,10 +135,10 @@ def apply_rules(source_uuid, source_type, target_uuid, target_type):
         """
         Objects Rule #1
         Acc создает Msg
-        Если S = Account и T = Message, то связываем Сотрудника владеющего аккаунтом и сообщение.
+        Если S = Account и T = Messages, то связываем Сотрудника владеющего аккаунтом и сообщение.
         Владелец аккаунта всегда один и связан с ним связью весом 0.
          """
-    if st == "accounts" and tt == "message":
+    if st == "accounts" and tt == "messages":
         try:
             response = session.query(rwObjects.Reference). \
                 filter(rwObjects.and_(0 == rwObjects.Reference.link,\
@@ -190,11 +192,11 @@ def apply_rules(source_uuid, source_type, target_uuid, target_type):
             if c not in classes.keys():
                 classes[c] = leaf.uuid
 
-    print classes.keys()
-    print standard
-    print tt
+    #print classes.keys()
+    #print standard
+    print "Проверка Knowledge Rule #1 для :",tt
     if tt in standard and tt in classes.keys():
-        print "Knowledge Rule #1"
+        print "Выполняем Knowledge Rule #1"
         rwObjects.link_objects(session, classes[tt], target_uuid)
         pass
 
