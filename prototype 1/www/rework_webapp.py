@@ -107,7 +107,23 @@ class SaveObject():
             # print cherrypy.request.__dict__
             raise cherrypy.HTTPRedirect(url)
 
-         
+class LinkObject(object):
+
+    def __init__(self):
+        pass
+
+    @cherrypy.expose
+    def link(self, uuid):
+        data = cherrypy.request.params
+        print uuid
+        session = rwObjects.Session()
+        tmpl = lookup.get_template("link_ktree_and_object.html")
+        obj = rwObjects.get_by_uuid(uuid)[0]
+        custom = rwObjects.get_ktree_custom(session)[1]
+
+        return tmpl.render(obj = obj, category = custom,
+                           session_context = cherrypy.session.get('session_context'))
+
 
 class Account(object):
     """
@@ -546,7 +562,7 @@ class ShowKTreeCategory(object):
 
         tmpl = lookup.get_template("ktree_show_category.html")
         session_context = cherrypy.session.get('session_context')
-        session_context['back_ref'] = '/ktree'
+        session_context['back_ref'] = '/ktree/'+str(category_uuid)
         cherrypy.session['session_context'] = session_context
 
         print category_uuid
@@ -577,6 +593,7 @@ class ShowKTreeCategory(object):
                            nodes=nodes, session_context = session_context)
 
 
+
 class Any_object(object):
     """
     Работа любыми объектами
@@ -602,7 +619,11 @@ class Any_object(object):
         elif len(vpath) == 2 and vpath[1] == 'save':
             print "Сохраняем объект : ",vpath
             return SaveObject()
-       
+        elif len(vpath) == 2 and vpath[1] == 'link':
+            cherrypy.request.params['uuid'] = vpath[0]
+            print "Связываем объект : ",vpath
+            return LinkObject()
+
         elif len(vpath) == 0:
             print "Вывод переадресации : ",vpath
             return self
