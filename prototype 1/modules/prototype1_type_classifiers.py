@@ -89,6 +89,98 @@ def tokenizer_2(data):
 
     return f
 
+""" Функция извлечения признаков """
+def email_specfeatures(entry,specwords):
+    """ Функция для получения признаков(features) из текста
+    Выделяет следующие признаки:
+    1. email отправителя
+    2. email получателей
+    3. Слова из темы сообщения
+    4. Все пары слов из темы сообщения
+    5. Определенные сочетания из темы сообщения
+    6. Слова из текста
+    7. Все пары слов из текста
+    8. Определенные пары слов из текста (specwords)
+    9. Оригинальное время создания сообщения, только HH:MM\
+    """
+
+    #print 'Text: \n', entry['message_text']
+    splitter=re.compile('\\W*',re.UNICODE)
+    splitter1=re.compile(',',re.UNICODE)
+    f={}
+
+    # Извлечь и аннотировать слова из заголовка
+    try:
+        titlewords=[s.lower( ) for s in splitter.split(entry.__dict__['subject']) if 2 < len(s) < 20]
+    except KeyError:
+        pass
+    else:
+        for w in titlewords:
+            #print 'Title: ',w,'\n'
+            f['subject:'+w]=1
+
+    """
+    # Извлечь и аннотировать слова из recipients
+    try:
+        recipients=[s.lower( ) for s in splitter1.split(entry['recipients'])if 2 < len(s) < 20]
+    except KeyError:
+        pass
+    else:
+        for w in recipients:
+            #print 'Recipit: ',w,'\n'
+            f['Recipients:'+w]=1
+
+    # Извлечь и аннотировать слова из recipients_name
+    recipients_name=[s.lower( ) for s in splitter1.split(entry['recipients_name'])
+                    if len(s)>2 and len(s)<20]
+    for w in recipients_name:
+        #print 'Recipit name: ',w,'\n'
+        f['Recipients_name:'+w]=1
+    """
+
+    # Извлечь слова из резюме
+    try:
+        summarywords=[s for s in splitter.split(entry.__dict__['text_plain'])if 2 < len(s) < 20]
+    except KeyError:
+        pass
+    else:
+        #print 'sum words: ',summarywords
+        # Подсчитать количество слов, написанных заглавными буквами
+        uc=0
+        for i in range(len(summarywords)):
+            w=summarywords[i]
+            f[w]=1
+            if w.isupper(): uc+=1
+            # Выделить в качестве признаков пары слов из резюме
+            if i<len(summarywords)-1:
+                j = i+1
+                l = [summarywords[i],summarywords[j]]
+                twowords = ' '.join(l)
+                #print 'Two words: ',twowords,'\n'
+                f[twowords]=1
+
+        #Извлекаем спец слова
+        str = re.compile(r'[,.!?*"\']*',re.U|re.I)
+        text = str.sub('',entry.__dict__['text_plain'])
+        #print text,'\n'
+        for key in specwords.keys():
+            match = re.search(specwords[key],text,re.U|re.I)
+            if match:
+                #print key,specwords[key],'\n'
+                str = key+':'+specwords[key]
+                f[str] = 1
+
+
+    """
+    # Оставить информацию об авторе без изменения
+    f['Sender:'+entry['sender']]=1
+    f['Sender_name:'+entry['sender_name']]=1
+    """
+
+    # UPPERCASE – специальный признак, описывающий степень "крикливости"
+    if (len(summarywords)) and (float(uc)/len(summarywords)>0.3): f['UPPERCASE']=1
+
+    return f
 
 def init_classifier(session,clf_type):
     """
@@ -360,9 +452,9 @@ def check_conditions_for_classify():
 def retrain_classifier(session,clf_uuid):
     """
     Готовит данные для тренировки классификатора и проводит ее.
-    :param session:
-    :param clf_uuid:
-    :return:
+    :param session: сессия ORM
+    :param clf_uuid: UUID классификатора для обучения
+    :return: список статуса. Первый элемент - статус операции True/Flase, второй - описание.
     """
     status = check_conditions_for_classify()
     if not status[0]:
@@ -371,10 +463,13 @@ def retrain_classifier(session,clf_uuid):
     # Готовим данные для тренировки. Делаем выборку из Reference с типами из FOR_CLASSIFY привязанных к custom веткам
     #  ДЗ.
     # Отбираем кастом ветки
-    custom_uuid = rwObjects.get_ktree_custom(session)[1]
+    custom = rwObjects.get_ktree_custom(session)
+    print custom
+    custom_uuid = custom.keys()
 
-
-    print custom_uuid
+    print "Custom ветки ДЗ: "
+    for i in custom.values():
+        print i.name
 
     # Делаем выборку всех DynamicObjects
     objects = list()
@@ -382,23 +477,37 @@ def retrain_classifier(session,clf_uuid):
         res = session.query(rwObjects.DynamicObject).\
             filter(rwObjects.DynamicObject.obj_type.in_(rwObjects.FOR_CLASSIFY)).all()
     except Exception as e:
-        return [False,"Ошибка доступа к базе классификаторов при обучении."]
+        return [False,"Ошибка доступа к базе DO."]
     else:
         for r in res:
             objects.append(r.uuid)
-    print objects
 
     # Ищем только связанные с custom узлами DO из нашего списка.
     try:
-        ref,s = session.query(rwObjects.Reference).\
+        res = session.query(rwObjects.Reference).\
             filter(rwObjects.and_(rwObjects.Reference.source_uuid.in_(custom_uuid),
                                   rwObjects.Reference.target_uuid.in_(objects))).all()
     except Exception as e:
-        return [False,"Ошибка доступа к базе классификаторов при обучении."]
+        return [False,"Ошибка доступа к базе Reference объектов."]
     else:
         pass
 
-    print ref
+    print "Объекты для обучения: "
+    # Готовим данные в объектах для обучения классификатора
+    keys = list()
+    dataset = list()
+    targets = list()
+    for r in res:
+        obj = rwObjects.get_by_uuid(r.target_uuid)[0]
+        keys.append(r.target_uuid)
+        dataset.append(obj.text_plain)
+        targets.append(r.source_uuid)
+        print "Объект: ",r.target_uuid
+        print "Текст: ",obj.text_plain
+        print "Категория",r.source_uuid
+        print ""
+
+
 
 
     return [True,""]
