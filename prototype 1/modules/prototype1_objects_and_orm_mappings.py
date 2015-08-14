@@ -237,12 +237,17 @@ class rw_parent():
 
         return [self.ALL_FIELDS, self.VIEW_FIELDS, self.EDIT_FIELDS, self.ADD_FIELDS]
 
-    def read(self):
+    def read(self,session):
         """
-        Заглушка для чтения динамических объектов.
-        :return: самого себя
+        Заглушка в стандатных типах для чтения динамических объектов.
+        :return:ничего
         """
         self.__dict__['obj_type'] = self.__tablename__
+
+        # Ищем Custom узлы ДЗ к которым относиться объект
+        self.__dict__['custom_category'] = list()
+        self.__dict__['system_category'] = list()
+
 
     def check(self):
         """
@@ -660,7 +665,7 @@ class DynamicObject(Base, rw_parent):
 
         return status
 
-    def read(self):
+    def read(self,session):
         """
         Прочитать объект из базы.
         :param uuid: глобальный идентификатор объекта в системе. Равен _id в mongoDB.
@@ -702,7 +707,23 @@ class DynamicObject(Base, rw_parent):
                 if key in self.__dict__.keys():
                     self.VIEW_FIELDS.append(key)
 
-                    # print "\n NEW VIEW FIELDS ",self.VIEW_FIELDS
+        # Ищем Custom узлы ДЗ к которым относиться объект
+        self.__dict__['custom_category'] = list()
+        self.__dict__['system_category'] = list()
+
+        try:
+            response = session.query(Reference).\
+                filter(and_(Reference.source_type == 'knowledge_tree',\
+                            Reference.target_uuid == self.uuid,\
+                            Reference.link == 0)).all()
+        except Exception as e:
+            pass
+        else:
+            custom_obj = get_ktree_custom(session)
+            for ref in response:
+                if ref.source_uuid in custom_obj.keys():
+                    self.__dict__['custom_category'].append(custom_obj[ref.source_uuid])
+
 
     def check(self, query):
         """
@@ -1024,8 +1045,6 @@ class KnowledgeTree(Base, rw_parent):
         :param parent_id: узел для которого ищутся дочение узлы.
         :return obj: Возвращает на первом месте сам родительский узел. Список дочерних узлов идет после родительского,
         если их нет, то только родительский.
-        то возвращается сам узел.
-         список.
         """
         obj = list()
         if parent_id == 0:
@@ -1054,6 +1073,19 @@ class KnowledgeTree(Base, rw_parent):
 
         return obj
 
+    def get_category_objects_count(self,session):
+        """
+        Возвращает количество объектов  в категории
+        """
+        try:
+            count = session.query(Reference).\
+                filter(and_(Reference.link == 0,Reference.source_uuid == self.uuid)).count()
+        except Exception:
+            return 0
+        else:
+            return 0
+
+
     @staticmethod
     def get_root(session):
         try:
@@ -1067,7 +1099,12 @@ class KnowledgeTree(Base, rw_parent):
 
 
 def get_ktree_custom(session):
-    custom_uuid = list()
+    """
+    Возвращает список custom узлов ДЗ и сами узлы в него входящие.
+    :param session: Сессия ORM
+    :return: словарь custom узлов, где ключи это UUID узлов, а значения объекты узлов.
+    """
+    custom = dict()
     try:
         res = session.query(KnowledgeTree).\
             filter(KnowledgeTree.type == 'custom').all()
@@ -1075,8 +1112,8 @@ def get_ktree_custom(session):
         return [False,"Ошибка доступа к базе классификаторов при обучении."]
     else:
         for r in res:
-            custom_uuid.append(r.uuid)
-    return custom_uuid,res
+            custom[r.uuid] = r
+    return custom
 
 
 class Question(Base, rw_parent):
@@ -1193,7 +1230,7 @@ def get_by_uuid(uuid):
         raise Exception(status[0], status[1])
     else:
         pass
-        obj.read()
+        obj.read(session)
         # print type(obj)
         # print obj
 

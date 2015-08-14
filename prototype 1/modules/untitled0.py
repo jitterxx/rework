@@ -95,8 +95,17 @@ test3 = ['От того и оснеженная Даль за окнами те�
 #print 'Ответы :',Z[0]
 
 
-s = rwLearn.retrain_classifier(session,'ed38261a-41cb-11e5-aae5-f46d04d35cbd')
-print s[0]
-print s[1]
+#s = rwLearn.retrain_classifier(session,'ed38261a-41cb-11e5-aae5-f46d04d35cbd')
+#print s[0]
+#print s[1]
+
+obj = rwObjects.get_by_uuid('55d942b4-425b-11e5-862b-f46d04d35cbd')[0]
+if obj.channel_type == 'email':
+    f= rwLearn.email_specfeatures(obj,{})
+
+for i in f.keys():
+    print i
+
+
 
 session.close()
