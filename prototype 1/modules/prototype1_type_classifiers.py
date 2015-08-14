@@ -22,6 +22,7 @@ import pymorphy2
 from time import time
 import pandas as pd
 import chardet
+from email import utils
 
 
 from sklearn.feature_extraction.text import HashingVectorizer
@@ -89,6 +90,57 @@ def tokenizer_2(data):
 
     return f
 
+
+# split for words
+def tokenizer_3(entry):
+
+    #print 'Text: \n', entry['message_text']
+    splitter=re.compile('\\W*',re.UNICODE)
+    splitter1=re.compile(',',re.UNICODE)
+    fd = dict()
+    fl = list()
+
+    # Извлечь и аннотировать слова из заголовка
+    # Извлечь слова из текста
+    try:
+        summarywords=[s for s in splitter.split(entry) if 2 < len(s) < 20]
+    except KeyError:
+        print "KeyError."
+    else:
+        #print 'sum words: ',summarywords
+        # Подсчитать количество слов, написанных заглавными буквами
+        uc=0
+        for w in summarywords:
+            if re.sub("\d+","",w) == "":
+                #print "Убираем :",w
+                summarywords.remove(w)
+
+        for i in range(len(summarywords)):
+            w=summarywords[i]
+            fd[w.lower()]=1
+            fl.append(w.lower())
+            if w.isupper(): uc+=1
+            # Выделить в качестве признаков пары слов из резюме
+            if i<len(summarywords)-1:
+                j = i+1
+                l = [summarywords[i],summarywords[j]]
+                twowords = ' '.join(l)
+                #print 'Two words: ',twowords,'\n'
+                fd[twowords.lower()]=1
+                fl.append(twowords.lower())
+
+    # UPPERCASE – специальный признак, описывающий степень "крикливости"
+    if (len(summarywords)) and (float(uc)/len(summarywords)>0.2):
+        fd['UPPERCASE']=1
+        fl.append('UPPERCASE')
+
+    for w in fl:
+        if re.sub("\d+","",w) == "":
+            #print "Убираем :",w
+            fl.remove(w)
+
+    return fl
+
 """ Функция извлечения признаков """
 def email_specfeatures(entry,specwords):
     """ Функция для получения признаков(features) из текста
@@ -107,7 +159,8 @@ def email_specfeatures(entry,specwords):
     #print 'Text: \n', entry['message_text']
     splitter=re.compile('\\W*',re.UNICODE)
     splitter1=re.compile(',',re.UNICODE)
-    f={}
+    fd = dict()
+    fl = list()
 
     # Извлечь и аннотировать слова из заголовка
     try:
@@ -117,7 +170,8 @@ def email_specfeatures(entry,specwords):
     else:
         for w in titlewords:
             #print 'Title: ',w,'\n'
-            f['subject:'+w]=1
+            fd['subject:'+w]=1
+            fl.append('subject:'+w)
 
     """
     # Извлечь и аннотировать слова из recipients
@@ -138,18 +192,24 @@ def email_specfeatures(entry,specwords):
         f['Recipients_name:'+w]=1
     """
 
-    # Извлечь слова из резюме
+    # Извлечь слова из текста
     try:
-        summarywords=[s for s in splitter.split(entry.__dict__['text_plain'])if 2 < len(s) < 20]
+        summarywords=[s for s in splitter.split(entry.__dict__['text_clear'])if 2 < len(s) < 20]
     except KeyError:
-        pass
+        print "KeyError."
     else:
         #print 'sum words: ',summarywords
         # Подсчитать количество слов, написанных заглавными буквами
         uc=0
+        for w in summarywords:
+            if re.sub("\d+","",w) == "":
+                #print "Убираем :",w
+                summarywords.remove(w)
+
         for i in range(len(summarywords)):
             w=summarywords[i]
-            f[w]=1
+            fd[w.lower()]=1
+            fl.append(w.lower())
             if w.isupper(): uc+=1
             # Выделить в качестве признаков пары слов из резюме
             if i<len(summarywords)-1:
@@ -157,30 +217,62 @@ def email_specfeatures(entry,specwords):
                 l = [summarywords[i],summarywords[j]]
                 twowords = ' '.join(l)
                 #print 'Two words: ',twowords,'\n'
-                f[twowords]=1
+                fd[twowords.lower()]=1
+                fl.append(twowords.lower())
 
         #Извлекаем спец слова
         str = re.compile(r'[,.!?*"\']*',re.U|re.I)
-        text = str.sub('',entry.__dict__['text_plain'])
+        text = str.sub('',entry.__dict__['text_clear'])
         #print text,'\n'
         for key in specwords.keys():
             match = re.search(specwords[key],text,re.U|re.I)
             if match:
                 #print key,specwords[key],'\n'
-                str = key+':'+specwords[key]
-                f[str] = 1
+                w = key+':'+specwords[key]
+                fd[w.lower()] = 1
+                fl.append(w.lower())
 
 
-    """
+
     # Оставить информацию об авторе без изменения
-    f['Sender:'+entry['sender']]=1
-    f['Sender_name:'+entry['sender_name']]=1
-    """
+    sender = extract_addresses(entry.__dict__['from'])
+    for w in sender.keys():
+        fd['from:' + w] = 1
+        fd['from_name:'+sender[w]]=1
+        fl.append('from:' + w)
+        fl.append('from_name:'+sender[w])
+
 
     # UPPERCASE – специальный признак, описывающий степень "крикливости"
-    if (len(summarywords)) and (float(uc)/len(summarywords)>0.3): f['UPPERCASE']=1
+    if (len(summarywords)) and (float(uc)/len(summarywords)>0.2):
+        fd['UPPERCASE']=1
+        fl.append('UPPERCASE')
 
-    return f
+    for w in fl:
+        if re.sub("\d+","",w) == "":
+            #print "Убираем :",w
+            fl.remove(w)
+
+    return fd,fl
+
+
+def extract_addresses(field):
+    """
+    :param field: Строка из которой надо извлечь имена и адреса. ФОрмат строки: ФИО_пробел_<email>,
+    ФИО_пробел_<email>,... .
+    :return addresses: Возвращает словарь в формате: key - email: value - ФИО или email, если ничего не было указано.
+    """
+    addresses = dict()
+    a = re.split(",",str(field))
+    for each in a:
+        name, addr = utils.parseaddr(each)
+        if name == "":
+            addresses[addr] = addr
+        else:
+            addresses[addr] = name
+
+    return addresses
+
 
 def init_classifier(session,clf_type):
     """
@@ -249,14 +341,14 @@ def fit_classifier(clf_uuid,texts,answers):
         clf = joblib.load(CL.clf_path)
         print clf.get_params
 
-    vectorizer = TfidfVectorizer(tokenizer=tokenizer_2)
+    vectorizer = TfidfVectorizer(tokenizer=tokenizer_3)
     print "\nГотовим обучающий набор текстов."
-    dataset = pd.DataFrame(texts)
+    #dataset = pd.DataFrame(texts)
     dataset = texts
-    print dataset
+    print len(dataset)
 
     print "\nГотовим обучающий набор ответов для текстов."
-    targets = pd.Series(answers)
+    #targets = pd.Series(answers)
     targets = answers
     print targets
 
@@ -499,16 +591,20 @@ def retrain_classifier(session,clf_uuid):
     targets = list()
     for r in res:
         obj = rwObjects.get_by_uuid(r.target_uuid)[0]
+        obj.clear_text()
         keys.append(r.target_uuid)
-        dataset.append(obj.text_plain)
+        dataset.append(obj.text_clear)
         targets.append(r.source_uuid)
         print "Объект: ",r.target_uuid
-        print "Текст: ",obj.text_plain
+        print "Текст длина в признаках: ",obj.text_clear
         print "Категория",r.source_uuid
         print ""
 
+    print "Dataset len :",len(dataset)
+    print "Key len :",len(keys)
+    print "Targets len :",len(targets)
 
-
+    fit_classifier('ed38261a-41cb-11e5-aae5-f46d04d35cbd', dataset, targets)
 
     return [True,""]
 

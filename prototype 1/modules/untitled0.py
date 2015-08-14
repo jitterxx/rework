@@ -17,6 +17,7 @@ import base64
 import pymongo
 import networkx as nx
 import matplotlib.pyplot as plt
+import re
 
 reload(sys)
 sys.setdefaultencoding("utf-8")
@@ -85,27 +86,32 @@ test = ['Когда луч молний озарял Ее всечасно бл�
 test2 = ['О всех ушедших грезит конопляник С широким месяцем над голубым прудом']
 test3 = ['От того и оснеженная Даль за окнами тепла']
 
-#text = rwObjects.get_by_uuid('536c5204-41c1-11e5-8564-f46d04d35cbd')[0]
-#print str(text.text_plain)
+text = rwObjects.get_by_uuid('b1b90f50-42b1-11e5-b537-f46d04d35cbd')[0]
+print str(text.text_plain)
 
 
-#probe,Z = rwLearn.predict('ed38261a-41cb-11e5-aae5-f46d04d35cbd',[text.text_plain])
+probe,Z = rwLearn.predict('ed38261a-41cb-11e5-aae5-f46d04d35cbd',[text.text_plain])
 
-#print 'Вероятности :',probe
-#print 'Ответы :',Z[0]
+print 'Вероятности :',probe
+t = rwObjects.get_by_uuid(Z[0])[0]
+print 'Ответы :',t.name
 
 
-#s = rwLearn.retrain_classifier(session,'ed38261a-41cb-11e5-aae5-f46d04d35cbd')
+#s = rwLearn.retrain_classifier(session,'55d942b4-425b-11e5-862b-f46d04d35cbd')
 #print s[0]
 #print s[1]
 
-obj = rwObjects.get_by_uuid('55d942b4-425b-11e5-862b-f46d04d35cbd')[0]
-if obj.channel_type == 'email':
-    f= rwLearn.email_specfeatures(obj,{})
+#obj = rwObjects.get_by_uuid('536c5204-41c1-11e5-8564-f46d04d35cbd')[0]
+#obj.clear_text()
+#fd,fl= rwLearn.email_specfeatures(obj,{})
 
-for i in f.keys():
-    print i
+#for i in fl:
+#    print i
 
 
+#print len(fd.keys())
+#print len(fl)
+
+#print obj.__dict__['text_clear']
 
 session.close()

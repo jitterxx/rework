@@ -29,24 +29,6 @@ sys.setdefaultencoding("utf-8")
 
 debug = False
 
-def get_text(data):
-    #Извлекаем из html сообщения только текст
-    soup = BeautifulSoup(data,from_encoding="utf8")
-
-    # Содержимое ссылок заменяем на LINK
-    tag = soup.new_tag(soup,"b")
-    tag.string = 'LINK'
-    for link in soup.find_all('a'):
-        link.replaceWith(tag)
-    for link in soup.find_all('script'):
-        link.replaceWith(tag)
-    for link in soup.find_all(''):
-        link.replaceWith(tag)
-    
-    text = soup.get_text()
-    text = strip_text(text)
-    
-    return text
 
 def strip_text(data):
     #Delete spec \t\n\r\f\v
@@ -254,23 +236,6 @@ def get_emails(account):
     M.logout()
 
     return s,status
-
-
-def extract_addresses(field):
-    """
-    :param field: Поле email из которого надо извлечь имена и адреса.
-        Возвращает словарь в формате: key - email: value - ФИО или email, если ничего не было указано.
-    """
-    addresses = dict()
-    a = re.split(",",str(field))
-    for each in a:
-        name, addr = utils.parseaddr(each)
-        if name == "":
-            addresses[addr] = addr
-        else:
-            addresses[addr] = name
-
-    return addresses
 
 
 """

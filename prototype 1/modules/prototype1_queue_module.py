@@ -12,6 +12,7 @@ import celery
 import prototype1_objects_and_orm_mappings as rwObjects
 import prototype1_email_module as rwEmail
 from datetime import timedelta, datetime
+import prototype1_type_classifiers as rwLearn
 
 import sys
 
@@ -202,9 +203,20 @@ def apply_rules(source_uuid, source_type, target_uuid, target_type):
 
 
     """
+    Knowledge Rule #2
     Класифицируем объекты типы которых указаны в константе FOR_CLASSIFY.
     """
-    for_classify = rwObjects.FOR_CLASSIFY
+    print "Проверка Knowledge Rule #2 для :",tt
+    if tt in rwObjects.FOR_CLASSIFY:
+        print "-------- Классифицируем объект : ",target_uuid,"---------"
+        obj = rwObjects.get_by_uuid(target_uuid)[0]
+        obj.clear_text()
+        print str(obj.text_plain)
+        probe,Z = rwLearn.predict('ed38261a-41cb-11e5-aae5-f46d04d35cbd',[obj.text_plain])
+        print 'Вероятности :',probe
+        categories = rwObjects.get_ktree_custom(session)
+        print 'Категория :',categories[Z[0]].name
+        print "--------------Классификация закончена.------------------"
 
     session.close()
     return "OK"

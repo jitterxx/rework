@@ -15,6 +15,7 @@ import uuid
 import datetime
 import json
 import base64
+from bs4 import BeautifulSoup
 from sklearn.externals import joblib
 import inspect
 import prototype1_queue_module as rwQueue
@@ -724,6 +725,22 @@ class DynamicObject(Base, rw_parent):
                 if ref.source_uuid in custom_obj.keys():
                     self.__dict__['custom_category'].append(custom_obj[ref.source_uuid])
 
+    def clear_text(self):
+        """
+        Очистка текста в объекте.
+        :return:
+        """
+        if 'raw_text_plain' in self.__dict__.keys():
+            data = self.__dict__['raw_text_plain']
+            #print "plain\n",data
+        elif 'raw_text_html' in self.__dict__.keys():
+            data = self.__dict__['raw_text_html']
+            data = get_text_from_html(self.__dict__['raw_text_html'])
+            #print "html\n",data
+
+        data = re.sub(u"<?[http]\S+>?",u'LINK1',data,re.I|re.U|re.M)
+
+        self.__dict__['text_clear'] = data
 
     def check(self, query):
         """
@@ -737,6 +754,27 @@ class DynamicObject(Base, rw_parent):
             return True
         else:
             return False
+
+
+def get_text_from_html(data):
+    """
+    Извлекаем из html сообщения только текст
+    :param data: html сообщение
+    :return:
+    """
+    soup = BeautifulSoup(data,from_encoding="utf8")
+
+    # Содержимое ссылок заменяем на LINK
+    tag = soup.new_tag(soup,"b")
+    tag.string = 'LINK'
+    for link in soup.find_all('a'):
+        link.replaceWith(tag)
+    for link in soup.find_all('script'):
+        link.replaceWith(tag)
+    for link in soup.find_all(''):
+        link.replaceWith(tag)
+
+    return soup.get_text()
 
 
 class UnstructuredObject(rw_parent):
