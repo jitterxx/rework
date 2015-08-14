@@ -1,0 +1,34 @@
+<%inherit file="page_structure.html"/>
+
+<%block name="title">
+    <title>Связывание</title>
+    <link href="/static/css/dashboard.css" rel="stylesheet">
+
+</%block>
+
+    <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
+        <h1 class="page-header">Связывание</h1>
+        <h3 class="">${obj.NAME}</h3>
+        <p>
+            % for key in obj.SHORT_VIEW_FIELDS:
+                ${obj.ALL_FIELDS[key]} - ${obj.__dict__[key]} <br>
+            % endfor
+        </p>
+        связать с
+        <p>
+        <form method="post" action="savelink">
+            <input type="hidden" name="object_type" value="${obj.__tablename__}">
+            <input type="hidden" name="category_type" value="knowledge_tree">
+            <p><select class="form-control" name="category_uuid">
+              % for one in category.values():
+                ${one.ALL_FIELDS['name']} <option value="${one.__dict__['uuid']}"> ${one.__dict__['name']} </option>
+              % endfor
+            </select>
+            </p>
+            <p>
+            <a class="btn btn-primary" role="button" href="${session_context['back_ref']}">Назад</a>
+            <button class="btn btn-success" type="submit">Записать</button>
+            </p>
+        </form>
+        </p>
+    </div>

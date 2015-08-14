@@ -13,6 +13,7 @@ sys.path.append('/home/sergey/test/rework/prototype 1/modules')
 
 import prototype1_objects_and_orm_mappings as rwObjects
 import prototype1_queue_module as rwQueue
+import prototype1_type_classifiers as rwLearn
 import cherrypy
 from auth import AuthController, require, member_of, name_is
 import networkx as nx
@@ -107,22 +108,51 @@ class SaveObject():
             # print cherrypy.request.__dict__
             raise cherrypy.HTTPRedirect(url)
 
+
 class LinkObject(object):
 
     def __init__(self):
         pass
 
     @cherrypy.expose
-    def link(self, uuid):
+    def addlink(self, uuid):
         data = cherrypy.request.params
         print uuid
         session = rwObjects.Session()
-        tmpl = lookup.get_template("link_ktree_and_object.html")
+        tmpl = lookup.get_template("add_link_to_ktree.html")
         obj = rwObjects.get_by_uuid(uuid)[0]
-        custom = rwObjects.get_ktree_custom(session)[1]
+        custom = rwObjects.get_ktree_custom(session)
+        print type(custom)
+        print custom.keys()
 
         return tmpl.render(obj = obj, category = custom,
                            session_context = cherrypy.session.get('session_context'))
+
+    @cherrypy.expose
+    def savelink(self, object_uuid, object_type,category_uuid,category_type):
+        data = cherrypy.request.params
+        session_context = cherrypy.session.get('session_context')
+        url = session_context['back_ref']
+
+        print "Obj UUID: ",object_uuid
+        print "Obj type: ",object_type
+        print "Category uuid:",category_uuid
+        print "Category type:",category_type
+        session = rwObjects.Session()
+        try:
+            st = rwObjects.link_objects(session,category_uuid,object_uuid)
+        except Exception as e:
+            print "Проблемы при связывании..."
+            print e
+            pass
+        else:
+            print "Связывание прошло успешно."
+            print st[0]
+            print st[1]
+            pass
+
+        print "Переадресация на : ",url
+        raise cherrypy.HTTPRedirect(url)
 
 
 class Account(object):
@@ -554,6 +584,17 @@ class KTree(object):
         session.close()
         raise cherrypy.HTTPRedirect(url)
 
+    @cherrypy.expose
+    def classify(self):
+
+        if rwLearn.check_conditions_for_classify()[0]:
+            session = rwObjects.Session()
+            status = rwLearn.retrain_classifier(session,'')
+            print status[0]
+            print status[1]
+
+        session.close()
+        raise cherrypy.HTTPRedirect("/ktree")
 
 class ShowKTreeCategory(object):
 
@@ -614,14 +655,18 @@ class Any_object(object):
             return ShowObject()
         elif len(vpath) == 2 and vpath[1] == 'edit':
             cherrypy.request.params['uuid'] = vpath[0]            
-            print "редактируем объект : ",vpath
+            print "Редактируем объект : ",vpath
             return EditObject()
         elif len(vpath) == 2 and vpath[1] == 'save':
             print "Сохраняем объект : ",vpath
             return SaveObject()
-        elif len(vpath) == 2 and vpath[1] == 'link':
+        elif len(vpath) == 2 and vpath[1] == 'addlink':
             cherrypy.request.params['uuid'] = vpath[0]
             print "Связываем объект : ",vpath
+            return LinkObject()
+        elif len(vpath) == 2 and vpath[1] == 'savelink':
+            cherrypy.request.params['object_uuid'] = vpath[0]
+            print "Сохраняем связь..."
             return LinkObject()
 
         elif len(vpath) == 0:

@@ -17,12 +17,16 @@
         </div>
         % for node in nodes:
         <div class="well well-sm">
+        <a class="btn btn-default btn-xs" role="button" href="/object/${node.uuid}/addlink">Связать</a>
         <a href="/object/${node.uuid}" >
             % for key in node.SHORT_VIEW_FIELDS:
                 ${node.ALL_FIELDS[key]}: ${node.__dict__[key]}
             % endfor
         </a>
-            <a href="/object/${node.uuid}/link"><span class="label label-default">Связать</span></a>
+            % for cat in node.__dict__['custom_category']:
+                <span class="label label-primary">${cat.name}</span>
+            % endfor
+
 
         </div>
         % endfor
