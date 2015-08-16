@@ -31,26 +31,42 @@ sys.setdefaultencoding("utf-8")
 """
 Constants
 """
-# Каналы взаимодействия reWork с внешним миром
+
 rwChannel_type = ["email", "facebook", "phone", "vk"]
+
+"""
+Константа описывающая возможные типы каналов получения сообщений.
+
+Используется в классах:
+
+* DynamicObject
+* Account
+
+"""
+
 LEARN_PATH = "learn_machine/"
 mongo_uri = 'mongodb://localhost/rsa'
 sql_uri = 'mysql://rework:HtdjhR123@localhost/rework?charset=utf8'
 
-"""
-STANDARD_OBJECTS_TYPES - список типов объектов (для всех классов кроме DynamicObjects это свойство __tablename__,
-для DynamicObjects - значение свойства objects_class)
-которые автоматически линкуются к стандартным веткам ДЗ. Стандартные ветки ДЗ, в базе имеют заполненное поле
-objects_class содержащее список типов объектов, которые автоматически с ними линкуются.
-"""
 STANDARD_OBJECTS_TYPES = ['accounts', 'employees', 'messages']
 
 """
-FOR_CLASSIFY - список типов объектов к которым применяются классификаторы.
+Константа содержит список типов объектов (для всех классов кроме DynamicObjects это свойство __tablename__,
+для DynamicObjects - значение свойства objects_class)
+которые автоматически линкуются к стандартным веткам ДЗ.
+
+Стандартные ветки ДЗ, в базе имеют заполненное поле
+objects_class содержащее список типов объектов, которые автоматически с ними линкуются.
+"""
+
+FOR_CLASSIFY = ['messages']
+
+"""
+Cписок типов объектов к которым применяются классификаторы.
+
 Классификаторы определяют кастомный узел в ДЗ знаний к которому можно отнести данный объект.
 Кастомный узел ДЗ - это создаваемый пользователями узлы по определенной тематике.
 """
-FOR_CLASSIFY = ['messages']
 
 """
 Подключение БД и MongoDB
@@ -68,14 +84,36 @@ reWork classes
 
 
 def create_tables():
-    # Пересоздание таблиц
+    """
+    Функция пересоздания таблиц  базе данных MySQL.
+
+    Все таблицы пересоздаются согласно объявлению классов наследованных от Base. Если таблица в БД существует,
+    то ничего не происходит.
+
+    :return: нет
+    """
+
     Base.metadata.create_all(Engine)
 
 
 def create_company():
     """
-    Служебная функция для создания новой компании и суперпользователя 
-    (администратора) всех настроек для этой компании.
+    Служебная функция для создания новой компании. Запускается при инициализации системы для новой компании.
+
+    Все данные будут запрошены функцией самостоятельно при запуске из консоли.
+
+     Создает:
+
+     * прародителя всех компаний -- reWork (необходимо для корректного построения графа)
+     * новую компанию и префикс (аналогично домену), следует после имен пользователей. Необходимо для совместимости.
+     * суперпользователя компании (администратора) -- имя по-умолчанию: superuser@<prefix>.
+     * начальную структуру Навигатора Знаний, разделы:
+
+       * Все
+       * Сообщения
+       * Аккаунты
+
+     * Инициализирует базовый классификатор для кастомных разделов Навигатора Знаний.
     
     """
 
@@ -212,8 +250,25 @@ def create_company():
 
 
 class rw_parent():
-    NAME = ""
+    """
+    Класс предок для всех остальных класов.
 
+    Используется для задания констант и базовых функций.
+
+    Свойства класса:
+
+    * NAME -- имя объекта экземпляра класса. Содержит человеческое имя для вывода на пользователям. По-умолчанию: ""
+    * EDIT_FIELDS -- список, перечисляет поля которые можно редактировать пользователю через интерфейс.
+    * ALL_FIELDS -- словарь, содержит все поля объекта с их названиями. Формат элемента: key -- свойство, \
+    value -- название.
+    * VIEW_FIELDS -- список, перечисляет поля которые будут показаны через интерфейс при стадартном выводе.
+    * ADD_FIELDS -- список, перечисляет поля которым можно присвоить значение через интерфейс при создании нового \
+    объекта.
+    * SHORT_VIEW_FIELDS -- список, перечисляет поля которые будут показаны через интерфейс при коротком выводе.
+
+    """
+
+    NAME = ""
     EDIT_FIELDS = []
     ALL_FIELDS = {}
     VIEW_FIELDS = []
@@ -221,19 +276,19 @@ class rw_parent():
     SHORT_VIEW_FIELDS = []
 
     def get_attrs(self):
+        """
+        Возвращает список всех полей объекта искючая служебные начинающиеся на _
+        :return: список полей объекта.
+        """
         attrs = [name for name in self.__dict__ if not name.startswith('_')]
 
         return attrs
 
     def get_fields(self):
         """
-        Возвращает три структуры из констант READONLY_FIELDS, VIEW_FIELDS.
-        -- Первая view -- словарь (Dict) содержит название поля объекта, 
-            подписей к полю для отображения.
-        -- Втоорая view_keys -- список (List) содержит названия полей объекта, 
-            определяет порядок отображения полей из словаря полей view.
-        -- Третий readonly - список (List) полей объекта недоступных для 
-            редактирования.
+        Возвращает 4 структуры из констант self.ALL_FIELDS, self.VIEW_FIELDS, self.EDIT_FIELDS, self.ADD_FIELDS.
+
+        :return: [self.ALL_FIELDS, self.VIEW_FIELDS, self.EDIT_FIELDS, self.ADD_FIELDS]
         """
 
         return [self.ALL_FIELDS, self.VIEW_FIELDS, self.EDIT_FIELDS, self.ADD_FIELDS]
@@ -241,7 +296,13 @@ class rw_parent():
     def read(self,session):
         """
         Заглушка в стандатных типах для чтения динамических объектов.
-        :return:ничего
+
+        Для обычных объектов производит:
+
+        * заполнение свойства -- self.__dict__['obj_type'] = self.__tablename__
+        * заполнение свойства -- self.__dict__['custom_category'] = list()
+        * заполнение свойства -- self.__dict__['system_category'] = list()
+
         """
         self.__dict__['obj_type'] = self.__tablename__
 
@@ -249,17 +310,33 @@ class rw_parent():
         self.__dict__['custom_category'] = list()
         self.__dict__['system_category'] = list()
 
-
     def check(self):
         """
         Проверка на существование объекта. Это заглушка в родительском классе.
+
         В классе при необходимости должна быть переписана на реальную проверку.
-        :return : Всегда возвращает список -- [True,"OK"]
+
+        :return: Всегда возвращает список -- [True,"OK"]
         """
         return [True, "OK"]
 
 
 class Company(Base, rw_parent):
+    """
+    Класс объектов для хранения данных о Компании.
+
+    **На текущий момент, каждая компания использует свой экземпляр базы MySQL для хранения данных, \
+    поэтому класс используется только при инциализации системы для новой компании.**
+
+    Список свойств класса:
+
+    :parameter id: sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
+    :parameter uuid: идентификатор (sqlalchemy.Column(sqlalchemy.String(50)))
+    :parameter name: название компании (sqlalchemy.Column(sqlalchemy.String(256)))
+    :parameter prefix: префикс компании (sqlalchemy.Column(sqlalchemy.String(10))).
+    :parameter employees: связь с полем comp_id  в класе Employee (relationship("Employee", backref="companies"))
+
+    """
     __tablename__ = 'companies'
     NAME = "Компания"
 
@@ -280,10 +357,11 @@ class Company(Base, rw_parent):
 
     def check(self):
         """
-       Проверка на существование компании с таким именем или префиксом.
-       Если не найдено совпадений возвращает в первом элементе True, иначе False.
-       Второй элемент содержит описание ошибки.
-       """
+        Проверка на существование компании с таким именем или префиксом.
+
+        :returns: status -- список из двух элементов. В первом True/False -- статус операции проверки, если совпадения \
+        найдены **False**, если не найдены - **True**. Второй элемент содержит описание ошибки.
+        """
 
         status = [True, "Совпадений не найдено."]
 
@@ -310,8 +388,11 @@ class Company(Base, rw_parent):
 
 def get_company_by_id(cid):
     """
-    Возвращает объект Компания по его id
+    Возвращает объект класса Company по его id.
+
+    :return: company -- объект класса Company.
     """
+
     session = Session()
     company = session.query(Company).filter_by(id=cid).first()
     session.close()
@@ -319,6 +400,22 @@ def get_company_by_id(cid):
 
 
 class Employee(Base, rw_parent):
+    """
+    Класс для работы с объектами Пользователей системы.
+
+    Список свойств класса:
+
+    :parameter id: sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
+    :parameter uuid: идентифкатор (sqlalchemy.Column(sqlalchemy.String(50), default=uuid.uuid1()))
+    :parameter name: имя пользователя (sqlalchemy.Column(sqlalchemy.String(256)))
+    :parameter surname: фамилия пользователя (sqlalchemy.Column(sqlalchemy.String(256)))
+    :parameter login: логин пользователя в формате: **<логин>@<префикс компании>** (sqlalchemy.Column( \
+    sqlalchemy.String(50)))
+    :parameter password: пароль пользователя (sqlalchemy.Column(sqlalchemy.String(20)))
+    :parameter comp_id: ид компании (Column(Integer, ForeignKey('companies.id')))
+    :parameter accounts: связь с полем employee_id в классе Account (relationship("Account", backref="employees"))
+    """
+
     EDIT_FIELDS = ['name', 'surname', 'password']
     ALL_FIELDS = {'name': 'Имя', 'surname': 'Фамилия',
                   'login': 'Логин', 'password': 'Пароль',
@@ -343,9 +440,10 @@ class Employee(Base, rw_parent):
 
     def check(self):
         """
-       Проверка на существование пользователь с таким login.
-       Если не найдено совпадений возвращает в первом элементе True, иначе False.
-       Второй элемент содержит описание ошибки.
+        Проверка на существование пользователя с таким login.
+
+        :return: status -- список из двух элементов. В первом True/False -- статус операции проверки, если совпадения \
+        найдены **False**, если не найдены - **True**. Второй элемент содержит описание ошибки.
        """
 
         status = [True, "Совпадений не найдено."]
@@ -371,7 +469,9 @@ class Employee(Base, rw_parent):
 def get_employee_by_login(login):
     """
     Получить данные пользователя по логину.
-    
+
+    :return: объект класса Employee.
+    :exception: None, если объект не найден или найдено несколько.
     """
 
     session = Session()
@@ -384,6 +484,7 @@ def get_employee_by_login(login):
     except sqlalchemy.orm.exc.MultipleResultsFound:
         # status = [False,"Такой логин существует. Задайте другой."]
         print "Найдено множество пользователей."
+        return None
     else:
         print "Пользователь найден"
         return user
@@ -393,11 +494,26 @@ def get_employee_by_login(login):
 
 class Account(Base, rw_parent):
     """
-        Объект для работы с аккаунтами Employees.
-        Записи необходимы для получения сообщений.
-        -- Электронная почта. Acc_type = email
-        -- Facebook. Acc_type = facebook
-        
+    Объект для работы с объектами класса Account.
+
+    * Электронная почта -- acc_type = email
+    * Facebook -- acc_type = facebook
+
+    Список свойств класса:
+
+    :parameter id: sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
+    :parameter uuid: идентификатор sqlalchemy.Column(sqlalchemy.String(50))
+    :parameter acc_type: Column(sqlalchemy.String(256), default=rwChannel_type[0])
+    :parameter description: sqlalchemy.Column(sqlalchemy.String(256))
+    :parameter server: sqlalchemy.Column(sqlalchemy.String(256))
+    :parameter port: sqlalchemy.Column(sqlalchemy.String(6))
+    :parameter login: sqlalchemy.Column(sqlalchemy.String(50))
+    :parameter password: sqlalchemy.Column(sqlalchemy.String(20))
+    :parameter dirs: Column(sqlalchemy.String(256), default=DIRS["Gmail"])
+    :parameter last_check: Column(sqlalchemy.DATETIME(), default=datetime.datetime.now())
+    :parameter employee_id: Column(Integer, ForeignKey('employees.id'))
+
+
     """
 
     __tablename__ = 'accounts'
