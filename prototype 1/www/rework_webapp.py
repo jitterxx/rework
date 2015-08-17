@@ -465,8 +465,8 @@ class Timeline(object):
             else:
                 if event.source_uuid not in actors.keys():
                     actors[event.source_uuid] = [obj.NAME]
-                    actors[event.source_uuid].append(obj.__dict__[obj.VIEW_FIELDS[0]])
-                    actors[event.source_uuid].append(obj.__dict__[obj.VIEW_FIELDS[1]])
+                    for f in obj.SHORT_VIEW_FIELDS:
+                        actors[event.source_uuid].append(obj.__dict__[f])
 
             try:        
                 obj = rwObjects.get_by_uuid(event.target_uuid)[0]
@@ -477,8 +477,9 @@ class Timeline(object):
             else:
                 if event.target_uuid not in actors.keys():
                     actors[event.target_uuid] = [obj.NAME]
-                    actors[event.target_uuid].append(obj.__dict__[obj.VIEW_FIELDS[0]])
-                    actors[event.target_uuid].append(obj.__dict__[obj.VIEW_FIELDS[1]])
+                    for f in obj.SHORT_VIEW_FIELDS:
+                        actors[event.target_uuid].append(obj.__dict__[f])
+
         return tmpl.render(obj = events,keys = obj_keys,
                            session_context = session_context,
                            all_f = f[0],

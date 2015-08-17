@@ -274,10 +274,10 @@ class rw_parent():
 
     NAME = ""
     EDIT_FIELDS = []
-    ALL_FIELDS = {}
-    VIEW_FIELDS = []
+    ALL_FIELDS = {'uuid':'uuid'}
+    VIEW_FIELDS = ['uuid']
     ADD_FIELDS = []
-    SHORT_VIEW_FIELDS = []
+    SHORT_VIEW_FIELDS = ['uuid']
 
     def get_attrs(self):
         """
