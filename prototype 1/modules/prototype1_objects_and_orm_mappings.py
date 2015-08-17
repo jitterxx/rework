@@ -496,23 +496,27 @@ class Account(Base, rw_parent):
     """
     Объект для работы с объектами класса Account.
 
-    * Электронная почта -- acc_type = email
-    * Facebook -- acc_type = facebook
-
-    Список свойств класса:
+    Список свойств класса в ORM:
 
     :parameter id: sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
-    :parameter uuid: идентификатор sqlalchemy.Column(sqlalchemy.String(50))
-    :parameter acc_type: Column(sqlalchemy.String(256), default=rwChannel_type[0])
-    :parameter description: sqlalchemy.Column(sqlalchemy.String(256))
-    :parameter server: sqlalchemy.Column(sqlalchemy.String(256))
-    :parameter port: sqlalchemy.Column(sqlalchemy.String(6))
-    :parameter login: sqlalchemy.Column(sqlalchemy.String(50))
-    :parameter password: sqlalchemy.Column(sqlalchemy.String(20))
-    :parameter dirs: Column(sqlalchemy.String(256), default=DIRS["Gmail"])
-    :parameter last_check: Column(sqlalchemy.DATETIME(), default=datetime.datetime.now())
-    :parameter employee_id: Column(Integer, ForeignKey('employees.id'))
+    :parameter uuid: идентификатор (sqlalchemy.Column(sqlalchemy.String(50)))
+    :parameter acc_type: тип аккаунта принимает одно из значений константы rwChannel_type (Column(sqlalchemy.String(\
+    256),default=rwChannel_type[0]))). По-умолчанию равен: rwChannel_typ[0] = email.
+    :parameter description: Описание аккаунта (sqlalchemy.Column(sqlalchemy.String(256)))
+    :parameter server: имя сервера для подключения по IMAP (sqlalchemy.Column(sqlalchemy.String(256)))
+    :parameter port: порт сервера для подключения по IMAP (sqlalchemy.Column(sqlalchemy.String(6)))
+    :parameter login: имя пользователя для подключения (sqlalchemy.Column(sqlalchemy.String(50)))
+    :parameter password: пароль пользователя (sqlalchemy.Column(sqlalchemy.String(20)))
+    :parameter dirs: каталоги которые будут проверяться системой при подключении (Column(sqlalchemy.String(256), \
+    default=DIRS["Gmail"])). По-умолчанию, проверяются "Входящие" и "Отправленные". На текущий момент реализована \
+    поддржка сервисов Gmail, Yandex.
+    :parameter last_check: время последней проверки (Column(sqlalchemy.DATETIME(), default=datetime.datetime.now()))
+    :parameter employee_id: ссылка на ИД сотрудника, владельца ящика (Column(Integer, ForeignKey('employees.id')))
 
+    Список постоянных свойств класса:
+
+    :parameter dict DIRS: словарь содержит закодированные названия проверяемых каталогов для разных сервисов. Формат: \
+    ключ - название сервиса, значение - JSON закодированная последовательность описывающая каталоги.
 
     """
 
@@ -562,9 +566,6 @@ class Account(Base, rw_parent):
         self.dirs = self.DIRS["Gmail"]
         self.last_check = datetime.datetime.now()
 
-    def check(self):
-        return [True, ""]
-
 
 class Client(Base, rw_parent):
     __tablename__ = 'clients'
@@ -598,9 +599,24 @@ class Channel(Base, rw_parent):
 class Reference(Base, rw_parent):
     """
     Класс хранит данные о связях между объектами. 
-    Значение аттрибута link равно 0, если это ребро между source и target.
-    Заначение аттрибута link равно 1, если это событие создания target объекта.
-    Source/target_type - содержат название таблицы __tablename__ хранения объекта.
+
+    :parameter id: sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
+    :parameter source_uuid: идентификатор (UUID) объекта источника связи (sqlalchemy.Column(sqlalchemy.String(50)))
+    :parameter source_type: тип объекта источника, равен свойству __tablename__ объекта ((sqlalchemy.Column( \
+    sqlalchemy.String(30))).
+    :parameter source_id: ид в талице (sqlalchemy.Column(Integer))
+    :parameter target_uuid: идентификатор (UUID) объекта цели связи (sqlalchemy.Column(sqlalchemy.String(50)))
+    :parameter target_type: тип объекта цели, равен свойству __tablename__ объекта (sqlalchemy.Column( \
+    sqlalchemy.String(30)))
+    :parameter target_id: ид в талице (sqlalchemy.Column(Integer))
+    :parameter link: вес связи между объектами (Column(Integer, default=0))
+    :parameter timestamp: метка времени создания связи (Column(sqlalchemy.DATETIME(), default=datetime.datetime.now()))
+
+    Значение аттрибута **link** равно **0**, если это связь между source и target.
+    Заначение аттрибута **link** равно **1**, если это событие создания target объекта объектом источником.
+
+    :parameter __tablename__: равен 'references'
+
     """
 
     NAME = "Событие"
@@ -631,6 +647,14 @@ class Reference(Base, rw_parent):
     timestamp = Column(sqlalchemy.DATETIME(), default=datetime.datetime.now())
 
     def create(self, session):
+        """
+        Функция записи связи между объектами в БД.
+
+        :param session: параметр сессии ORM.
+        :return: status -- список из двух элементов. В первом True/False -- статус операции, если ошибка **False**, \
+        если все было записано - **True**. Второй элемент содержит описание.
+        """
+
         r_status = [True, ""]
         # Записываем объект
         session.add(self)
@@ -649,13 +673,7 @@ class Reference(Base, rw_parent):
         return r_status
 
 
-class Event():
-    """
-    Класс аналогичен классу Reference, но значение аттрибута link равно 1.
-    """
-
-
-""" 
+"""
 Бизнес объекты
 """
 
@@ -714,10 +732,34 @@ class Used_case(Base, rw_parent):
 
 class DynamicObject(Base, rw_parent):
     """
-    Динамические объекты.
-    В SQL базе только параметры, остальное в mongodb.
-    Доступ к объектам через встроенные функции класс read, write, они дополняют существующий экземпляр свойствами из
-    MongoDB.
+    Класс для работы с динамическими объектами.
+
+    Динамические объекты это структуры содержащие основной смысловой материал компании:
+
+    * сообщения (электронные письма, сообщения в соц сетях и т.д.)
+    * документы присланные по почте, находящиеся в облачных файловых сервисах и т.д.
+
+    Т.к. структура объектов может отличаться даже внутри одной категории, то все хранение содежимого перенесено в \
+    MongoDB, в MySQL базе храняться только служебные параметры объектов. UUID объектов в обеих базах совпадают для \
+    облегчения
+    доступа и поиска.
+
+    Доступ к объектам происходит только через встроенные функции класса: read, write. Они дополняют созданный \
+    экземпляр класса свойствами объекта хранящимися в MongoDB.
+
+    Свойства класса в ORM:
+
+    :parameter id: ид (Column(sqlalchemy.Integer, primary_key=True))
+    :parameter uuid: идентификатор (Column(sqlalchemy.String(50), default=uuid.uuid1()))
+    :parameter obj_type: тип самого объекта хранящегося в MongoDB. Тип не может пересекаться с типами стандартных \
+    объектов в ORM (теми значениями что храняться в __tablename__) (Column(sqlalchemy.String(256))).
+    :parameter collection: коллекция в которой объект храниться в MongoDB (Column(sqlalchemy.String(256)))
+    :parameter timestamp: время создания (Column(sqlalchemy.DATETIME(), default=datetime.datetime.now()))
+
+    Список постоянных свойств класса:
+
+    :parameter __tablename__: по-умолчанию равно 'dynamic_object'
+
     """
 
     __tablename__ = 'dynamic_object'
@@ -731,13 +773,23 @@ class DynamicObject(Base, rw_parent):
 
     def __init__(self):
         """
-        Инициализация объекта происходит с одновременным заполнением свойств.
-        :param data: словарь со значениями для свойств класса.
-        :return: возвращает объект типа DynamicObject
+        Инициализация объекта происходит с одновременным заполнением свойства uuid.
         """
         self.uuid = uuid.uuid1()
 
     def write(self, session, obj):
+        """
+        Функция производит запись самого объекта в MongoDB и служебной информации в MySQL.
+
+        Объект должен обязательно содержать поле **obj_type** которое определяет его тип и используется для \
+        дальнейшей работы с объектом.
+
+        :param session: параметр сессии ORM.
+        :param obj: сам объект содержащий данные. Представляет собой набор полей и их значений (словарь).
+
+        :return: status -- список из двух элементов. В первом True/False -- статус операции, если ошибка **False**, \
+        если все было записано - **True**. Второй элемент содержит описание.
+        """
         session_flag = False
 
         if not session:
@@ -784,11 +836,18 @@ class DynamicObject(Base, rw_parent):
 
     def read(self,session):
         """
-        Прочитать объект из базы.
-        :param uuid: глобальный идентификатор объекта в системе. Равен _id в mongoDB.
-        :param obj_type: указывает на коллекцию в которой находится объект
-        :return: возвращает объект типа DynamicObject с заполненными полями. Если не найден, возвращает в None.
+        Читает объект из базы MongoDB. Заполняет свойства:
+
+        * VIEW_FIELDS
+        * ALL_FIELDS
+        * SHORT_VIEW_FIELDS
+        * NAME
+        * self.__dict__['custom_category'] -- какие custom объекты Навигатора Знаний связаны с ним
+        * self.__dict__['system_category'] -- какие system объекты Навигатора Знаний связаны с ним
+
+        :param session: параметр сессии ORM.
         """
+
         self.VIEW_FIELDS = []
         # Определяем название коллекции в которой находиться объект
         collection = Mongo_db[self.collection]
@@ -818,7 +877,6 @@ class DynamicObject(Base, rw_parent):
                 self.ALL_FIELDS['raw_text_html'] = 'Текст'
                 self.SHORT_VIEW_FIELDS = ['from', 'to', 'subject']
 
-
             # Удаляем ключи не присутствующие в данном объекте
             for key in view_f:
                 if key in self.__dict__.keys():
@@ -843,8 +901,13 @@ class DynamicObject(Base, rw_parent):
 
     def clear_text(self):
         """
-        Очистка текста в объекте.
-        :return:
+        Производит очистку текста в объекте.
+
+        **Должна вызываться только после read(), иначе некоторые свойства объекта не будут еще определены.**
+
+        Формирует новое свойство **self.__dict__['text_clear']** которе заполняется очищенным от html тегов и ссылок\
+         текстом.
+
         """
         if 'raw_text_plain' in self.__dict__.keys():
             data = self.__dict__['raw_text_plain']
@@ -861,8 +924,9 @@ class DynamicObject(Base, rw_parent):
     def check(self, query):
         """
         Проверяем наличие записей в базе с указанными параметрами.
+
         :param query: Параметры в виде словаря.
-        :return True, если что-то нашлось, False - если совпадений не найдено.
+        :return: **True**, если что-то нашлось, **False** - если совпадений не найдено.
         """
         collection = Mongo_db[self.collection]
         response = collection.find_one(query)
@@ -874,10 +938,12 @@ class DynamicObject(Base, rw_parent):
 
 def get_text_from_html(data):
     """
-    Извлекаем из html сообщения только текст
+    Извлекаем из html сообщения только текст. Ссылки заменяются ключевым словом **LINK**.
+
     :param data: html сообщение
-    :return:
+    :return: plain текст
     """
+
     soup = BeautifulSoup(data,from_encoding="utf8")
 
     # Содержимое ссылок заменяем на LINK
@@ -892,31 +958,6 @@ def get_text_from_html(data):
 
     return soup.get_text()
 
-
-class UnstructuredObject(rw_parent):
-    """
-    Класс для работы с объектами из MongoDB
-    """
-
-    def read(self, uuid, collection):
-        """
-        Прочитать объект из базы.
-        :param uuid: глобальный идентификатор объекта в системе. Равен _id в mongoDB.
-        :param obj_type: указывает на коллекцию в которой находится объект
-        :return: возвращает объект типа DynamicObject с заполненными полями. Если не найден, возвращает в None.
-        """
-        # Определяем название коллекции в которой находиться объект
-
-        # Читаем объект
-        # Заполняем параметры
-        return None
-
-    def write(self):
-        """
-        Записать объект в mongo.
-        Записывает в базу объект, со всеми значениями свойств.
-        :return: Возвращает статус операции.
-        """
 
 """
 class Message(Base, rw_parent):
@@ -1074,11 +1115,28 @@ def get_email_message(session, uuid):
     return messages
 """
 
+
 class Classifier(Base, rw_parent):
     """
     Хранит список классификаторов.
-    Классификаторы нужны для автоматического определения принадлежности к сетке ДЗ типа custom.
-    Все классификаторы используются для классификации всех типов объектов входящих в FRO_CLASSSIFY
+
+    Классификаторы нужны для автоматического определения принадлежности к ветке типа custom Навигатора Знаний.
+    Классификаторы используются для классификации всех типов объектов входящих в FOR_CLASSSIFY.
+
+    Свойства класса в ORM:
+
+    :parameter id: ид (Column(sqlalchemy.Integer, primary_key=True))
+    :parameter uuid: идентификатор (Column(sqlalchemy.String(50), default=uuid.uuid1()))
+    :parameter description: описание классфикатора (Column(sqlalchemy.String(256)))
+    :parameter clf_path: пусть к файлу хранящему сериализованный объект классификатора, необходим для хранения \
+    обученного классификатора (Column(sqlalchemy.String(256)))
+    :parameter clf_type: тип используемого алгоритма (Column(sqlalchemy.String(256)))
+    :parameter vec_path: путь к файлу хранящему сериализованный объект векторизатора Column(sqlalchemy.String(256))
+
+    Постоянные свойства класса:
+
+    :parameter __tablename__: равен "classifiers"
+
     """
 
     __tablename__ = "classifiers"
@@ -1116,7 +1174,28 @@ class KnowledgeTree(Base, rw_parent):
     """
     Иерархическая структура знаний.
     Каждый узел представляет собой описание темы с параметрами.
-    
+
+    Свойства класса в ORM:
+
+    :parameter id: ид (Column(sqlalchemy.Integer, primary_key=True))
+    :parameter uuid: идентификатор (Column(sqlalchemy.String(50), default=uuid.uuid1())
+    :parameter parent_id: ид родительского узла (Column(sqlalchemy.String(50))
+    :parameter name: название (Column(sqlalchemy.String(256))
+    :parameter tags: теги узла(ключевые слова) (Column(sqlalchemy.String(256))
+    :parameter description: описание (Column(sqlalchemy.String(256))
+    :parameter expert: ответственный эксперт (его логин) (Column(sqlalchemy.String(256))
+    :parameter tags_clf: теги классификатора (Column(sqlalchemy.String(256), default="")
+    :parameter objects_class: типы объектов которые автоматически будут привязаны к этому узлу Навигатора Знаний при \
+    их появлении в системе. Обычно относиться к system узлам. (Column(sqlalchemy.String(256),default=""))
+    :parameter type: тип узла (Column(sqlalchemy.String(256), default="")), бывают двух типов: **system** -- \
+    системный, не подлежит изменению пользователями и к нему могут быть привязаны автоматические типы. \
+    **custom** -- пользовательский, может быть создан и изменен в настройках. Для таких узлов проводятся процедуры \
+    распознавания и классификации объектов системы с помощью классификаторов.
+
+    Постоянные свойства класса:
+
+    :parameter __tablename__: равно "knowledge_tree"
+    :parameter NAME: равно "Знания"
     """
 
     __tablename__ = "knowledge_tree"
@@ -1149,9 +1228,12 @@ class KnowledgeTree(Base, rw_parent):
 
     def get_objects_classes(self):
         """
-        Возвращает распакованные классы объектов которые надо показать в этом узле.
-        :return: список
+        Возвращает распакованные классы объектов которые надо показать в этом узле. Значения ищутся в свойстве \
+        objects_class.
+
+        :return: список типов классов в виде строк
         """
+
         resp = list()
         if not self.objects_class:
             return resp
@@ -1164,42 +1246,18 @@ class KnowledgeTree(Base, rw_parent):
 
         return resp
 
-    def return_full_tree(self, session, outformat):
-        """
-        Возвращает дерево в виде строки или словаря, согласно формату.
-        -- string -- строка, только названия узлов.
-        -- dict -- словарь, все свойства.
-        -- session -- использует существующую сессию SQL. Если None, создает свою.
-        
-        
-        """
-
-        if not session:
-            session = Session()
-
-        if outformat == "string":
-            s = ""
-            ss, obj = self.return_childs(session, 0, 0)
-            s = s + ss
-        else:
-            s = ""
-            obj = None
-
-        return s, obj
-        print "Данные из запроса : "
-        print params
-        print "\nКонтекст :"
-        print session_context
-        print "Переадресация на show_object... ", url
-
     @staticmethod
     def ktree_return_childs(session, parent_id):
         """
+        Функция возвращает дочерние узлы для указанного родительского.
+
         :param session: Объект SQLAlchemy Session.
         :param parent_id: узел для которого ищутся дочение узлы.
-        :return obj: Возвращает на первом месте сам родительский узел. Список дочерних узлов идет после родительского,
-        если их нет, то только родительский.
+
+        :return: спсиок, на первом месте сам родительский узел. Список дочерних узлов идет после \
+        родительского,если их нет, то только родительский.
         """
+
         obj = list()
         if parent_id == 0:
             raise Exception("Нельзя указывать parent_id = 0.")
@@ -1229,19 +1287,31 @@ class KnowledgeTree(Base, rw_parent):
 
     def get_category_objects_count(self,session):
         """
-        Возвращает количество объектов  в категории
+        Возвращает количество объектов привязанных к узлу Навигатора Знаний UUID которого указан в self.uuid.
+
+        :parameter session: сессия ORM
+
+        :return: если не было ошибок, то возвращает количество. Если были ошибки, то вернет 0.
         """
+
         try:
             count = session.query(Reference).\
                 filter(and_(Reference.link == 0,Reference.source_uuid == self.uuid)).count()
         except Exception:
             return 0
         else:
-            return 0
-
+            return count
 
     @staticmethod
     def get_root(session):
+        """
+        Возвращает id корневого узла Навигатора Знаний.
+
+        :parameter session: сессия ORM
+
+        :return: id корневого узла Навигатора Знаний
+        """
+
         try:
             query = session.query(KnowledgeTree). \
                 filter(KnowledgeTree.parent_id == 0).one()
@@ -1254,10 +1324,13 @@ class KnowledgeTree(Base, rw_parent):
 
 def get_ktree_custom(session):
     """
-    Возвращает список custom узлов ДЗ и сами узлы в него входящие.
+    Возвращает список custom узлов Навигатора Знаний и сами узлы в него входящие.
+
     :param session: Сессия ORM
+
     :return: словарь custom узлов, где ключи это UUID узлов, а значения объекты узлов.
     """
+
     custom = dict()
     try:
         res = session.query(KnowledgeTree).\
@@ -1271,20 +1344,23 @@ def get_ktree_custom(session):
 
 
 class Question(Base, rw_parent):
-    __doc__ = """
+    """
     Вопросы которые задаются пользователю.
-    Стурктура:
-    -- *target_uuid* -- UUID целевого объекта
-    -- *target_type* -- тип объекта
-    -- *target_attr* -- Название атрибута который надо определить
-    -- *Text - Текст вопроса
-    -- *Answer - Ответ от пользователя
-    -- *ans_var - Варианты ответов
-    -- *type - Тип вопроса: ДА-НЕТ или выбор из доступных вариантов ответов
-    -- *do_true - Что выполнять при положительном ответе
-    -- *do_false - Что выполнять при отрицательном ответе
-    -- *is_answered - индикатор наличия ответа
-    -- *user - UUID пользователя системы которому адресован вопрос
+
+    Структура:
+
+    :parameter target_uuid: UUID целевого объекта
+    :parameter target_type: тип объекта
+    :parameter target_attr: Название атрибута который надо определить
+    :parameter Text: Текст вопроса
+    :parameter Answer: Ответ от пользователя
+    :parameter ans_var: Варианты ответов
+    :parameter type: Тип вопроса: ДА-НЕТ или выбор из доступных вариантов ответов
+    :parameter do_true: Что выполнять при положительном ответе
+    :parameter do_false: Что выполнять при отрицательном ответе
+    :parameter is_answered: индикатор наличия ответа
+    :parameter user: UUID пользователя системы которому адресован вопрос
+
     """
 
     __tablename__ = "questions_queue"
@@ -1311,23 +1387,17 @@ def test():
     pass
 
 
-
-
 def get_by_uuid(uuid):
     """
-
     Возвращает объект любого типа по его uuid.
     
-    В качестве параметров ждет UUID объекта.
     Существование объекта определяется по наличию связи в References со статусом 1.
-    Параметры объекта определяются через его тип.
-    
-    :rtype : Возвращает объект которому принадлежит указанный UUID.
-    Возвращает:
-    -- сам объект 
-    -- статус в виде списка. Первый элемент True/False в зависимости от итога
-    операций и сообщение во втором элемента (пустой если прошло успешно).
-    
+    Параметры объекта определяются через его тип (обычно указан в __tablename__).
+
+    :parameter uuid: UUID объекта
+
+    :return: сам объект, которому принадлежит указанный UUID. Cтатус в виде списка. Первый элемент True/False в \
+    зависимости от итога операций и сообщение во втором элемента (пустой если прошло успешно).
     """
 
     session = Session()
@@ -1394,13 +1464,13 @@ def get_by_uuid(uuid):
 
 def set_by_uuid(uuid, data):
     """
-
-    Записывает объект любого типа по его uuid.
+    Записывает объект любого типа по его uuid. Проверяет список полей на изменения, если их не было ничего не делает. \
+    Если изменения были, то ставит бит принудительного сохранения объекта для ORM и проводит commit.
     
-    В качестве параметров ждет поля объекта объекта,в формате Dict.
+    :parameter uuid: идентификатор
+    :parameter data: поля объекта объекта,в формате Dict.
     
-    Возвращает:
-    -- статус в виде списка. Первый элемент True/False в зависимости от итога
+    :return: Возвращает статус в виде списка. Первый элемент **True/False** в зависимости от итога \
     операций и сообщение во втором элемента (пустой если прошло успешно).
     
     """
@@ -1483,15 +1553,18 @@ def set_by_uuid(uuid, data):
 
 def create_new_object(session, object_type, params, source):
     """
-    :param session: Session()
-    Идентификатор сессии ORM. Если не передается, то ожидается None и создается новый. Если передан, то используется он.
-    :param object_type: string
-     Тип нового объекта. Совпадает со свойством  __tablename__ объектов.
-    :param params: dict
-    Набор значений свойств нового ообъекта.
-    :param source: Любой объект имеющий UUID из модуля rwObjects
-    :return: list Список из статуса и сам объект.
+    Создает новый объект и записывает его. Перед создание проверяет наличие обязательных полей  и существование \
+    объекта с указанными свойствами.
+
+    :param session: Идентификатор сессии ORM. Если не передается, то ожидается None и создается новый. Если передан, \
+    то используется он.
+    :param object_type: строка с типом нового объекта. Совпадает со свойством  __tablename__ объектов.
+    :param params: словарь значений свойств нового ообъекта.
+    :param source: Любой объект имеющий UUID, являющийся создателем нового объекта. Будет записан как объект источник \
+    в таблицу Reference.
+    :return: список из статуса операции и сам объект. Если прошло неудачно, вместо объекта возвращается None.
     """
+
     status = [True, ""]
     session_flag = False
     new_obj = None
@@ -1558,11 +1631,14 @@ def create_new_object(session, object_type, params, source):
 
 def link_objects(session, source_uuid, target_uuid):
     """
+    Создает связь между объектами.
+
     :param session: Session ORM. Если не передаеться, то поставить None.
     :param source: UUID исходного объекта.
     :param target: UUID целевого объекта.
-    :return: тестовая строка со статусом операции.
+    :return: список со статусом операции и комментариями.
     """
+
     session_flag = False
     if not session:
         session = Session()
