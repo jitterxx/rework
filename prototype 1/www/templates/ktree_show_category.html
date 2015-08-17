@@ -27,6 +27,11 @@
                 <span class="label label-primary">${cat.name}</span>
             % endfor
 
+            % for cat in auto_cats[node.uuid]:
+                <span class="label label-warning">${cats_name[cat[1]].name} - ${"{0:.1f}".format(float(cat[0])*100)
+                    }%</span>
+            % endfor
+
 
         </div>
         % endfor

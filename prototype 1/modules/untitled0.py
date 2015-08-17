@@ -70,34 +70,21 @@ session.close()
 
 session = rwObjects.Session()
 
-# status,clf = rwLearn.init_classifier(session,'svc')
-# print status
-# print clf
-
-dataset = ['Ты видел деву на скале В одежде белой над волнами Когда бушуя в бурной мгле Играло море с берегами И '
-           'ветер бился и летал С ее летучим покрывалом',\
-           'Отговорила роща золотая Березовым веселым языком И журавли печально пролетая Уж не жалеют больше ни о '
-           'ком']
-targets = ['Пушкин', 'Есенин']
-
-#rwLearn.fit_classifier('ed38261a-41cb-11e5-aae5-f46d04d35cbd', dataset, targets)
-
-test = ['Когда луч молний озарял Ее всечасно блеском алым']
-test2 = ['О всех ушедших грезит конопляник С широким месяцем над голубым прудом']
-test3 = ['От того и оснеженная Даль за окнами тепла']
-
-text = rwObjects.get_by_uuid('b1b90f50-42b1-11e5-b537-f46d04d35cbd')[0]
-print str(text.text_plain)
+#text = rwObjects.get_by_uuid('b1b90f50-42b1-11e5-b537-f46d04d35cbd')[0]
+#print str(text.text_plain)
 
 
-probe,Z = rwLearn.predict('ed38261a-41cb-11e5-aae5-f46d04d35cbd',[text.text_plain])
+#probe,Z = rwLearn.predict('ed38261a-41cb-11e5-aae5-f46d04d35cbd',[text.text_plain])
 
-print 'Вероятности :',probe
-t = rwObjects.get_by_uuid(Z[0])[0]
-print 'Ответы :',t.name
+#print 'Вероятности : %s' % probe
+#print 'UUID категори : %s' % Z
 
+## t = rwObjects.get_by_uuid('ed38261a-41cb-11e5-aae5-f46d04d35cbd')[0].targets
+#print t
 
-#s = rwLearn.retrain_classifier(session,'55d942b4-425b-11e5-862b-f46d04d35cbd')
+rwLearn.autoclassify_all_notlinked_objects()
+
+#s = rwLearn.retrain_classifier(session,'ed38261a-41cb-11e5-aae5-f46d04d35cbd')
 #print s[0]
 #print s[1]
 

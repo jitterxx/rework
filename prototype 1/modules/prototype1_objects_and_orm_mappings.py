@@ -22,6 +22,7 @@ import prototype1_queue_module as rwQueue
 import prototype1_type_classifiers as rwLearn
 import pymongo
 import re
+import operator
 
 import sys
 
@@ -136,7 +137,6 @@ def create_company():
     company_name = unicode(raw_input("Введите название компании: "))
     company_prefix = unicode(raw_input("Введите префикс (до 3-х символов): "))
 
-
     new_company = Company()
     new_company.name = str(company_name)
     new_company.prefix = str(company_prefix)
@@ -224,7 +224,7 @@ def create_company():
 
     print "Создаем системный раздел Дерева Знаний: Сообщения"
     params = {'parent_id': parent_id, 'name': 'Сообщения', 'description': 'Сообщения', 'tags': '',
-              'expert': superuser.login,'type': 'system','objects_class':'messages'}
+              'expert': superuser.login, 'type': 'system', 'objects_class': 'messages'}
     try:
         status, obj = create_new_object(session, "knowledge_tree", params, superuser)
     except Exception as e:
@@ -234,7 +234,7 @@ def create_company():
 
     print "Создаем системный раздел Дерева Знаний: Аккануты"
     params = {'parent_id': parent_id, 'name': 'Аккаунты', 'description': 'Аккаунты', 'tags': '',
-              'expert': superuser.login,'type': 'system'}
+              'expert': superuser.login, 'type': 'system'}
     try:
         status, obj = create_new_object(session, "knowledge_tree", params, superuser)
     except Exception as e:
@@ -243,8 +243,12 @@ def create_company():
         print status
 
     print "Создаем базовый классификатор для кастомных разделов Дерева Знаний."
-    status,clf = rwLearn.init_classifier(session,'svc')
-    print status[0],status[1]
+    try:
+        status, clf = rwLearn.init_classifier(session, 'svc')
+    except Exception as e:
+        raise (e)
+    else:
+        print status
 
     session.close()
 
@@ -293,7 +297,7 @@ class rw_parent():
 
         return [self.ALL_FIELDS, self.VIEW_FIELDS, self.EDIT_FIELDS, self.ADD_FIELDS]
 
-    def read(self,session):
+    def read(self, session):
         """
         Заглушка в стандатных типах для чтения динамических объектов.
 
@@ -834,7 +838,7 @@ class DynamicObject(Base, rw_parent):
 
         return status
 
-    def read(self,session):
+    def read(self, session):
         """
         Читает объект из базы MongoDB. Заполняет свойства:
 
@@ -887,9 +891,9 @@ class DynamicObject(Base, rw_parent):
         self.__dict__['system_category'] = list()
 
         try:
-            response = session.query(Reference).\
-                filter(and_(Reference.source_type == 'knowledge_tree',\
-                            Reference.target_uuid == self.uuid,\
+            response = session.query(Reference). \
+                filter(and_(Reference.source_type == 'knowledge_tree', \
+                            Reference.target_uuid == self.uuid, \
                             Reference.link == 0)).all()
         except Exception as e:
             pass
@@ -911,13 +915,13 @@ class DynamicObject(Base, rw_parent):
         """
         if 'raw_text_plain' in self.__dict__.keys():
             data = self.__dict__['raw_text_plain']
-            #print "plain\n",data
+            # print "plain\n",data
         elif 'raw_text_html' in self.__dict__.keys():
             data = self.__dict__['raw_text_html']
             data = get_text_from_html(self.__dict__['raw_text_html'])
-            #print "html\n",data
+            # print "html\n",data
 
-        data = re.sub(u"<?[http]\S+>?",u'LINK1',data,re.I|re.U|re.M)
+        data = re.sub(u"<?[http]\S+>?", u'LINK1', data, re.I | re.U | re.M)
 
         self.__dict__['text_clear'] = data
 
@@ -944,10 +948,10 @@ def get_text_from_html(data):
     :return: plain текст
     """
 
-    soup = BeautifulSoup(data,from_encoding="utf8")
+    soup = BeautifulSoup(data, from_encoding="utf8")
 
     # Содержимое ссылок заменяем на LINK
-    tag = soup.new_tag(soup,"b")
+    tag = soup.new_tag(soup, "b")
     tag.string = 'LINK'
     for link in soup.find_all('a'):
         link.replaceWith(tag)
@@ -1132,6 +1136,8 @@ class Classifier(Base, rw_parent):
     обученного классификатора (Column(sqlalchemy.String(256)))
     :parameter clf_type: тип используемого алгоритма (Column(sqlalchemy.String(256)))
     :parameter vec_path: путь к файлу хранящему сериализованный объект векторизатора Column(sqlalchemy.String(256))
+    :parameter targets: хранит список категорий которым был обучен классификатор (Column(sqlalchemy.TEXT())). \
+    Позиция вероятности в ответе соответствует категории в этом списке.
 
     Постоянные свойства класса:
 
@@ -1147,6 +1153,7 @@ class Classifier(Base, rw_parent):
     clf_path = Column(sqlalchemy.String(256))
     clf_type = Column(sqlalchemy.String(256))
     vec_path = Column(sqlalchemy.String(256))
+    targets = Column(sqlalchemy.TEXT())
 
     def __init__(self):
         self.uuid = uuid.uuid1()
@@ -1154,20 +1161,59 @@ class Classifier(Base, rw_parent):
         self.vec_path = LEARN_PATH + str(self.uuid) + str("_vectorizer.joblib.pkl")
 
 
-class MessageCategory(Base, rw_parent):
+class ClassificationResult(Base, rw_parent):
     """
-    Типы сообщений. Используется для классификации.
+    Хранит результаты автоматической классфикации объектов.
     """
 
-    __tablename__ = "message_category"
+    __tablename__ = "classification_result"
 
     id = Column(sqlalchemy.Integer, primary_key=True)
     uuid = Column(sqlalchemy.String(50), default=uuid.uuid1())
-    name = Column(sqlalchemy.String(256))
-    description = Column(sqlalchemy.String(256))
+    clf_uuid = Column(sqlalchemy.String(256))
+    target_uuid = Column(sqlalchemy.String(256))
+    probe = Column(sqlalchemy.String(256))
+    categories = Column(sqlalchemy.TEXT())
+    status = Column(sqlalchemy.String(256))
 
     def __init__(self):
         self.uuid = uuid.uuid1()
+
+    def get_probe_and_category(self):
+        """
+        Возвращает отсортированный по уменьшению вероятности список, каждый элемент которого это список из двух \
+        частей. Первый элемент - вероятность, второй - UUID категории.
+        """
+
+        result = list()
+        probes = re.split(',',self.probe)
+        cats = re.split(',',self.categories)
+
+        for i in xrange(len(probes)):
+            result.append([probes[i],cats[i]])
+
+        print "Before sort : %s" % result
+        sort = sorted(result,key=operator.itemgetter(0),reverse=True)
+
+        return sort
+
+
+def get_classification_results(session, object_uuid):
+    """
+    Функция возвращает для указанного UUID объекта все результаты автоматической классификации со статусом **'new'**.
+
+    :param session: сессия ORM
+    :param object_uuid: идентификатор объекта для которого нужен результат
+    :return: список объектов класса ClassificationResult
+    """
+
+    try:
+        resp = session.query(ClassificationResult).filter(and_(ClassificationResult.status == 'new',\
+                                                                 ClassificationResult.target_uuid == object_uuid)).one()
+    except Exception:
+        return []
+    else:
+        return resp.get_probe_and_category()
 
 
 class KnowledgeTree(Base, rw_parent):
@@ -1210,7 +1256,7 @@ class KnowledgeTree(Base, rw_parent):
                   'parent_id': 'Родительский раздел', 'tags_clf': 'tags_clf',
                   'objects_class': 'Автоматически привязываются', 'type': 'Тип узла'}
     VIEW_FIELDS = ['name', 'description', 'tags', 'expert']
-    ADD_FIELDS = ['type', 'parent_id', 'name', 'description', 'tags', 'expert','objects_class']
+    ADD_FIELDS = ['type', 'parent_id', 'name', 'description', 'tags', 'expert', 'objects_class']
 
     id = Column(sqlalchemy.Integer, primary_key=True)
     uuid = Column(sqlalchemy.String(50), default=uuid.uuid1())
@@ -1285,7 +1331,7 @@ class KnowledgeTree(Base, rw_parent):
 
         return obj
 
-    def get_category_objects_count(self,session):
+    def get_category_objects_count(self, session):
         """
         Возвращает количество объектов привязанных к узлу Навигатора Знаний UUID которого указан в self.uuid.
 
@@ -1295,8 +1341,8 @@ class KnowledgeTree(Base, rw_parent):
         """
 
         try:
-            count = session.query(Reference).\
-                filter(and_(Reference.link == 0,Reference.source_uuid == self.uuid)).count()
+            count = session.query(Reference). \
+                filter(and_(Reference.link == 0, Reference.source_uuid == self.uuid)).count()
         except Exception:
             return 0
         else:
@@ -1333,10 +1379,10 @@ def get_ktree_custom(session):
 
     custom = dict()
     try:
-        res = session.query(KnowledgeTree).\
+        res = session.query(KnowledgeTree). \
             filter(KnowledgeTree.type == 'custom').all()
     except Exception as e:
-        return [False,"Ошибка доступа к базе классификаторов при обучении."]
+        return [False, "Ошибка доступа к базе классификаторов при обучении."]
     else:
         for r in res:
             custom[r.uuid] = r
@@ -1590,10 +1636,13 @@ def create_new_object(session, object_type, params, source):
     elif object_type == "knowledge_tree":
         new_obj = KnowledgeTree()
         # создаем классификатор
-        #clf = rwLearn.init_classifier('svc')
+        # clf = rwLearn.init_classifier('svc')
         for f in new_obj.ADD_FIELDS:
             if f in params.keys() and params[f] != "":
                 new_obj.__dict__[f] = params[f]
+    elif object_type == "classifiers":
+        CL = Classifier()
+        st, new_obj = rwLearn.init_classifier(session, CL, 'svc')
 
     else:
         status[False, "Объект типа " + object_type + " создать нельзя."]
@@ -1654,7 +1703,7 @@ def link_objects(session, source_uuid, target_uuid):
                         Reference.source_type == source.__tablename__, \
                         Reference.source_id == source.id, \
                         Reference.target_uuid == target.uuid, \
-                        Reference.target_type == target.__tablename__,\
+                        Reference.target_type == target.__tablename__, \
                         Reference.link == 0)).all()
     except Exception as e:
         raise Exception("Ошибка чтения базы связей. " + str(e))

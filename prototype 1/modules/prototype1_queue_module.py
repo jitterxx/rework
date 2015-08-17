@@ -156,7 +156,7 @@ def apply_rules(source_uuid, source_type, target_uuid, target_type):
 
         """
         Objects Rule #2
-        Правило 2. Empl создает Empl
+        Правило 2. Empl создает Emplsubtask
         Если S = Employee и T = Employee, то связываем нового пользователя с Компанией.
             Пользователя создает суперюзер, он связан со своей компанией линком весом 0.
         """
@@ -206,17 +206,27 @@ def apply_rules(source_uuid, source_type, target_uuid, target_type):
     Knowledge Rule #2
     Класифицируем объекты типы которых указаны в константе FOR_CLASSIFY.
     """
-    print "Проверка Knowledge Rule #2 для :",tt
+    print "Проверка Knowledge Rule #2 для : %s" % tt
     if tt in rwObjects.FOR_CLASSIFY:
-        print "-------- Классифицируем объект : ",target_uuid,"---------"
+        print "-------- Классифицируем объект : %s ---------" % target_uuid
         obj = rwObjects.get_by_uuid(target_uuid)[0]
+        clf_uuid = "ed38261a-41cb-11e5-aae5-f46d04d35cbd"
         obj.clear_text()
         print str(obj.text_plain)
-        probe,Z = rwLearn.predict('ed38261a-41cb-11e5-aae5-f46d04d35cbd',[obj.text_plain])
-        print 'Вероятности :',probe
+        probe,Z = rwLearn.predict(clf_uuid,[obj.text_plain])
+        print 'Вероятности : %s' % probe
         categories = rwObjects.get_ktree_custom(session)
-        print 'Категория :',categories[Z[0]].name
+        print 'Категория : %s' % categories[Z[0]].name
         print "--------------Классификация закончена.------------------"
+
+        # Сохраняем результаты классификации
+        status = rwLearn.save_classification_result(session,target_uuid,clf_uuid,probe)
+        if status[0]:
+            print "Данные классификации сохранены."
+        else:
+            print "Данные классификации НЕ сохранены."
 
     session.close()
     return "OK"
+
+

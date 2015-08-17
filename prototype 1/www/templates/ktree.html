@@ -12,9 +12,11 @@
                         <%
                             string = "<li class='list-group-item'>"
                             childs = obj.ktree_return_childs(session,parent)
-
+                            count = childs[0].get_category_objects_count(session)
                             if len(childs) != 1:
+
                                 string += "<a href='/ktree/%s'>%s</a>  "%(str(childs[0].uuid),childs[0].name)
+                                string += "<span class='badge'>%s</span>"%count
                                 string += "<a href='/ktree/add?parent_id=%s&name=%s'>"%(childs[0].id,childs[0].name)
                                 string += "<span class='glyphicon glyphicon-plus'></span></a></li>\n<ul>"
                                 for child in childs[1:]:

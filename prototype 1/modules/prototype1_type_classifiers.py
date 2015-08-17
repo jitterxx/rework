@@ -274,7 +274,7 @@ def extract_addresses(field):
     return addresses
 
 
-def init_classifier(session,clf_type):
+def init_classifier(session,clf_obj,clf_type):
     """
     Инициализация классификатора.
     :param clf_type: -- тип классификатора dtree или svc.
@@ -282,49 +282,46 @@ def init_classifier(session,clf_type):
     :return status -- статус операции
     :return CL -- объект класса rwObjects.Classifier()
     """
-    status = ['','']
+
+    status = [True,'']
 
     if not session:
         raise Exception("Не передан параметр сессии.")
 
-    CL = rwObjects.Classifier()
-    
     if clf_type == "dtree":
-        CL.clf_type = 'dtree'
+        clf_obj.clf_type = 'dtree'
         clf = tree.DecisionTreeClassifier()
     elif clf_type == "svc":
-        CL.clf_type = 'svc'
+        clf_obj.clf_type = 'svc'
         clf = svm.SVC(kernel='linear', C=1.0, probability=True)
     else:
-        status[0] = "ERROR"
+        status[0] = False
         status[1] = "Указан неверный тип классификатора."
+        clf_obj = None
 
     try:
-        joblib.dump(clf, CL.clf_path, compress=9)
+        joblib.dump(clf, clf_obj.clf_path, compress=9)
     except RuntimeError as e:
-        status[0] = "ERROR"
-        status[1] = "Ошибка сохранения классификатора в файл "+str(CL.clf_path)
+        status[0] = False
+        status[1] = "Ошибка сохранения классификатора в файл "+str(clf_obj.clf_path)
         status[1] += str(e)
-        
-    else:
-        session.add(CL)
-        session.commit()
-        status[0] = "OK"
-    finally:
-        session.close()
-        
-    return status,CL
+        clf_obj = None
+
+    return status,clf_obj
+
 
 def fit_classifier(clf_uuid,texts,answers):
-    u"""
+    """
     Переобучение классификатора при неверной классификации.
     Периодическое переобучение.
-    :param clf_uuid -- UUID классфикатора
-    :param dataset -- словарь, где ключами являются идентификаторы текстов(сообщений), а значениями тексты которые
+
+    :param clf_uuid: UUID классфикатора
+    :param texts: словарь, где ключами являются идентификаторы текстов(сообщений), а значениями тексты которые
     необходимо классифицировать.
-    :param target -- словарь, где ключами являются идентификаторы текстов(сообщений), а значениями класс или
+    :param answers: словарь, где ключами являются идентификаторы текстов(сообщений), а значениями класс или
     категория к которой относиться текст(сообщение).
     """
+
     session = rwObjects.Session()
     
     try:
@@ -369,14 +366,14 @@ def fit_classifier(clf_uuid,texts,answers):
 
     print "\nОбучаем классификатор..."
     clf.fit(V,targets)
-    
+    CL.targets = ','.join(clf.classes_)
+
     try:
         print "\nСохраняем классификатор в файл..."
         joblib.dump(clf, CL.clf_path, compress=9)
     except RuntimeError:
         s = "Ошибка сохранения классификатора в файл "+str(CL.clf_path)
         s += str(sys.exc_info())
-        
     else:
         session.add(CL)
         session.commit()
@@ -415,7 +412,10 @@ def predict(clf_uuid,dataset):
     V = v.todense()    
     Z = clf.predict(V)
     proba = clf.predict_proba(V)
-    
+
+    #print "Что-тО : %s" % clf.classes_
+
+    session.close()
     return proba,Z
     
 
@@ -472,8 +472,7 @@ def test():
     #print type(probe)
     
     print "Проверка SVM"
-    
-    
+
     status = fit_classifier(7,train_text,cat)
 
     probe1,Z1 = predict(7,dataset=test_text)
@@ -540,7 +539,6 @@ def check_conditions_for_classify():
     return [True,"OK"]
 
 
-
 def retrain_classifier(session,clf_uuid):
     """
     Готовит данные для тренировки классификатора и проводит ее.
@@ -548,6 +546,7 @@ def retrain_classifier(session,clf_uuid):
     :param clf_uuid: UUID классификатора для обучения
     :return: список статуса. Первый элемент - статус операции True/Flase, второй - описание.
     """
+
     status = check_conditions_for_classify()
     if not status[0]:
         raise Exception("Не соблюдены условия для тренировки."+status[1])
@@ -609,3 +608,109 @@ def retrain_classifier(session,clf_uuid):
     return [True,""]
 
 
+def save_classification_result(session,target_uuid,clf_uuid,probe):
+    """
+    Сохраняет результат автоматической классификации в бд.
+    Если результаты авто классификации для такого классификатора и объекта уже есть в таблице, то перезаписываем их \
+    новыми.
+
+    :return:
+    """
+
+    try:
+        res = session.query(rwObjects.ClassificationResult).\
+            filter(rwObjects.and_(rwObjects.ClassificationResult.clf_uuid == clf_uuid,\
+                                  rwObjects.ClassificationResult.target_uuid == target_uuid)).one()
+    except Exception:
+        print "Новая автоклассификация для %s" % target_uuid
+        result = rwObjects.ClassificationResult()
+    else:
+        print "Перезаписываем автоклассификацию для %s" % target_uuid
+        result = res
+
+    result.clf_uuid = clf_uuid
+    result.target_uuid = target_uuid
+    result.probe = ",".join(map(str,probe[0]))
+    result.status = "new"
+
+    CL = rwObjects.get_by_uuid(clf_uuid)[0]
+    result.categories = CL.targets
+
+    try:
+        session.add(result)
+        session.commit()
+    except Exception as e:
+        return [False,str(e)]
+    else:
+        pass
+
+    return [True,"OK"]
+
+
+def autoclassify_all_notlinked_objects():
+    """
+    Проводит автоматическую классификацию всех не связанных ни с одним custom узлом Навигатора Знаний объектов класса
+    DynamicObject. При этом используется текущие настройки и обученная модель классификатора. Если автоматическая
+    классификация для объекта уже существует, то ее результаты будут перезаписаны.
+
+    :return:
+    """
+
+    # Ищем все сообщения, их них отбираем только те которые не имеют связей с custom
+    # т.е. имею пустое свойство self.__dict__['custom_category']
+    session = rwObjects.Session()
+
+    resp = session.query(rwObjects.DynamicObject).all()
+    for obj in resp:
+        obj.read(session)
+        print obj.uuid
+        print obj.__dict__['custom_category']
+        if not obj.__dict__['custom_category'] and obj.obj_type in rwObjects.FOR_CLASSIFY:
+            print "-------- Классифицируем объект : %s ---------" % obj.uuid
+            obj = rwObjects.get_by_uuid(obj.uuid)[0]
+            clf_uuid = "ed38261a-41cb-11e5-aae5-f46d04d35cbd"
+            obj.clear_text()
+            #print str(obj.text_plain)
+            probe,Z = predict(clf_uuid,[obj.text_plain])
+            print 'Вероятности : %s' % probe
+            categories = rwObjects.get_ktree_custom(session)
+            print 'Категория : %s' % categories[Z[0]].name
+            print "--------------Классификация закончена.------------------"
+
+            # Сохраняем результаты классификации
+            status = save_classification_result(session,obj.uuid,clf_uuid,probe)
+            if status[0]:
+                print "Данные классификации сохранены."
+            else:
+                print "Данные классификации НЕ сохранены."
+
+    session.close()
+
+
+def clear_autoclassify(session,target_uuid):
+    """
+    Удаление данных автоматической классфикации.
+
+    :param session: Сессия ORM
+    :param target_uuid: UUID объекта автоматическую классификацию которого надо удалить.
+    :return: ничего
+    """
+
+    try:
+        resp = session.query(rwObjects.ClassificationResult).\
+            filter(rwObjects.ClassificationResult.target_uuid == target_uuid).all()
+    except Exception:
+        return [False,"Не могу найти указанный объект."]
+    else:
+        pass
+
+    try:
+        for obj in resp:
+            session.delete(obj)
+        session.commit()
+    except Exception:
+        return [False,"Не могу удалить указанный объект : %s" % obj]
+    else:
+        pass
+
+    return [True,"OK"]

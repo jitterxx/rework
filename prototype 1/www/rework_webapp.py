@@ -149,9 +149,19 @@ class LinkObject(object):
             print "Связывание прошло успешно."
             print st[0]
             print st[1]
-            pass
 
-        print "Переадресация на : ",url
+        try:
+            st = rwLearn.clear_autoclassify(session,object_uuid)
+        except Exception as e:
+            print "Проблемы удалении автоклассфиикации.."
+            print e
+        else:
+            print "Удаление автоклассификации успешно."
+            print st[0]
+            print st[1]
+
+        print "Переадресация на : ", url
+        session.close()
         raise cherrypy.HTTPRedirect(url)
 
 
@@ -589,7 +599,7 @@ class KTree(object):
 
         if rwLearn.check_conditions_for_classify()[0]:
             session = rwObjects.Session()
-            status = rwLearn.retrain_classifier(session,'')
+            status = rwLearn.retrain_classifier(session,'ed38261a-41cb-11e5-aae5-f46d04d35cbd')
             print status[0]
             print status[1]
 
@@ -614,8 +624,9 @@ class ShowKTreeCategory(object):
 
         try:
             response = session.query(rwObjects.Reference).\
-                filter(rwObjects.or_(rwObjects.Reference.source_uuid == leaf.uuid,
-                                     rwObjects.Reference.target_uuid == leaf.uuid)).all()
+                filter(rwObjects.or_(rwObjects.Reference.source_uuid == leaf.uuid,\
+                                     rwObjects.Reference.target_uuid == leaf.uuid)).\
+                order_by(rwObjects.desc(rwObjects.Reference.timestamp)).all()
         except Exception as e:
             raise(e)
         else:
@@ -630,8 +641,14 @@ class ShowKTreeCategory(object):
 
         print nodes
 
-        return tmpl.render(obj = leaf, session = session, name=leaf.name,
-                           nodes=nodes, session_context = session_context)
+        auto_cats = dict()
+        for node in nodes:
+            auto_cats[node.uuid]=rwObjects.get_classification_results(session,node.uuid)
+            # print "Автоклассификация : %s" % auto_cats[node.uuid]
+
+        return tmpl.render(obj=leaf, session=session, name=leaf.name,
+                           nodes=nodes, session_context=session_context,
+                           auto_cats=auto_cats, cats_name=rwObjects.get_ktree_custom(session))
 
 
 
