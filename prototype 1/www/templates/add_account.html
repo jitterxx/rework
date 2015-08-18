@@ -20,7 +20,7 @@
                          <td>
                              <select class="form-control" name="dirs">
                                  % for d in obj.DIRS.keys():
-                                  <option value="${d}">${d}</option>
+                                  <option value="${obj.DIRS[d]}">${d}</option>
                                  % endfor
                             </select>
                          </td>

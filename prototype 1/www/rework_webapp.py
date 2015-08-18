@@ -29,6 +29,16 @@ from mako.lookup import TemplateLookup
 lookup = TemplateLookup(directories=["./templates"],output_encoding="utf-8",
                         input_encoding="utf-8",encoding_errors="replace")
 
+
+class ShowError():
+    def __init__(self,error):
+        pass
+
+    @cherrypy.expose
+    def index(self,error):
+        return str(error)
+
+
 class EditObject():
     def __init__(self):
         pass
@@ -48,9 +58,7 @@ class EditObject():
             f = obj.get_fields()
             return tmpl.render(obj = obj,keys = obj_keys,
                                session_context = cherrypy.session.get('session_context'),
-                                all_f=f[0],
-                                view_f=f[1],
-                                edit_f=f[2])
+                                all_f=f[0],view_f=f[1],edit_f=f[2])
 
     
 class ShowObject():
@@ -169,11 +177,13 @@ class Account(object):
     """
 
     """
+    _cp_config = {
+        'auth.require': [member_of('users')]
+    }
 
     @cherrypy.expose
     def index(self):
         raise cherrypy.HTTPRedirect("/")
-
 
     @cherrypy.expose
     def add(self,employee_uuid):
@@ -183,7 +193,7 @@ class Account(object):
 
         tmpl = lookup.get_template("add.html")
         session_context = cherrypy.session.get('session_context')
-        session_context['back_ref'] = "/employee"
+        session_context['back_ref'] = "/settings?menu=accounts"
         session_context['employee_uuid'] = employee_uuid
         cherrypy.session['session_context'] = session_context
         obj = rwObjects.Account()
@@ -192,8 +202,8 @@ class Account(object):
 
         return tmpl.render(obj = obj,keys = obj_keys, name = obj.NAME,
                            session_context = session_context,
-                           all_f = f[0],
-                           create_f = f[3])
+                           all_f = f[0],create_f = f[3], acc_type=rwObjects.rwChannel_type)
+
     @cherrypy.expose
     def create_new(self,**kwargs):
         data = cherrypy.request.params
@@ -252,7 +262,7 @@ class Employee(object):
     """
     
     _cp_config = {
-        'auth.require': [member_of('users')]
+        'auth.require': [member_of('admin')]
     }
     
     def _cp_dispatch(self, vpath):
@@ -305,11 +315,10 @@ class Employee(object):
                            all_f = f[0],
                            linked = linked_objects)
 
-
     @cherrypy.expose
     def add(self):
         
-        tmpl = lookup.get_template("add.html")
+        tmpl = lookup.get_template("add_employee.html")
         session_context = cherrypy.session.get('session_context')
         session = rwObjects.Session()
         obj = session.query(rwObjects.Employee).\
@@ -328,14 +337,25 @@ class Employee(object):
         session_context = cherrypy.session.get('session_context')
         url = session_context['back_ref']
 
-        params = {}
-        params['login'] = data['login']
-        params['company_prefix'] = session_context['company_prefix']
-        params['name'] = data['name']
-        params['password'] = data['password']
-        params['surname'] = data['surname']
-        params['comp_id'] = session_context['comp_id']
+        params = dict()
+        try:
+            params['login'] = data['login']
+            params['company_prefix'] = session_context['company_prefix']
+            params['name'] = data['name']
+            params['password'] = data['password']
+            params['surname'] = data['surname']
+            params['comp_id'] = session_context['comp_id']
+            params['groups'] = data['groups']
+        except KeyError as e:
+            return ShowError(str(e))
+        else:
+            pass
 
+        for k in params.keys():
+            if params[k] == "" or not params[k]:
+                return ShowError("Параметр %s незаполнен." % k)
+
+        raise cherrypy.HTTPRedirect(url)
         """
         Проверка параметров тут.
         """
@@ -737,7 +757,6 @@ class Root(object):
     ktree = KTree()
     account = Account()
 
-
     @cherrypy.expose
     @require(member_of("users"))
     def index(self):
@@ -749,31 +768,90 @@ class Root(object):
     
     @cherrypy.expose
     @require(member_of("users"))
-    def graph(self):
+    def graph(self,link):
         tmpl = lookup.get_template("graph.html")
         c = get_session_context(cherrypy.request.login)
         params = cherrypy.request.headers
         session = rwObjects.Session()
-        response = session.query(rwObjects.Reference).filter(rwObjects.Reference.link == 0).all()
+        response = session.query(rwObjects.Reference).filter(rwObjects.Reference.link == int(link)).all()
 
         G = nx.Graph()
         labels = {}
         for line in response:
             G.add_node(str(line.source_uuid),obj = line.source_type)
             G.add_node(str(line.target_uuid),obj = line.target_type)
-            G.add_edge(str(line.source_uuid),str(line.target_uuid), comment = 'создан')
+            G.add_edge(str(line.source_uuid),str(line.target_uuid), comment = link)
 
         for node in G.nodes():
             obj = rwObjects.get_by_uuid(node)[0]
             labels[node]=obj.NAME
 
         pos = nx.spring_layout(G)
+        plt.figure(1,figsize=(10,10))
         nx.draw_networkx_nodes(G,pos)
-        nx.draw_networkx_labels(G,pos,labels=labels, font_size=6)
+        nx.draw_networkx_labels(G,pos,labels=labels, font_size=7)
         nx.draw_networkx_edges(G,pos)
         plt.savefig("static/img/draw.png")
+        plt.close()
 
         return tmpl.render(params = params, session_context = c)
+
+    @cherrypy.expose
+    @require(member_of("users"))
+    def settings(self,menu=None):
+        session_context = cherrypy.session.get('session_context')
+        if not menu:
+            tmpl = lookup.get_template("settings_dashboard.html")
+            menu = ""
+            session_context['back_ref'] = '/settings'
+        elif menu == 'company':
+            tmpl = lookup.get_template("settings_dashboard.html")
+            session_context['back_ref'] = '/settings?menu=company'
+        elif menu == 'employee' or menu == 'accounts':
+            tmpl = lookup.get_template("employee.html")
+            session = rwObjects.Session()
+
+            # если пользователь с правами администратора, выбираем всех сотрудников
+            if 'admin' in session_context['groups']:
+                users = session.query(rwObjects.Employee).\
+                    filter_by(comp_id = session_context['comp_id']).all()
+                obj_keys = users[0].get_attrs()
+                f = users[0].get_fields()
+                session_context['back_ref'] = '/settings?menu=employee'
+            # если пользователь с обычными правами, только свой профиль
+            else:
+                users = [rwObjects.get_by_uuid(session_context['uuid'])[0]]
+                obj_keys = users[0].get_attrs()
+                f = users[0].get_fields()
+                session_context['back_ref'] = '/settings?menu=accounts'
+
+            linked_objects = dict()
+            for user in users:
+                refs = session.query(rwObjects.Reference).\
+                    filter(rwObjects.sqlalchemy.and_(rwObjects.Reference.source_uuid == user.uuid,
+                                                     rwObjects.Reference.target_type == "accounts",
+                                                     rwObjects.Reference.link == 0)).all()
+                linked_objects[user.uuid] = []
+
+                for ref in refs:
+                    linked_objects[user.uuid].append(rwObjects.get_by_uuid(ref.target_uuid)[0])
+
+            session.close()
+
+            return tmpl.render(obj=users,keys=obj_keys, session_context=session_context,
+                               view_f=f[1], all_f=f[0], linked=linked_objects)
+
+        elif menu == 'clients':
+            tmpl = lookup.get_template("settings_dashboard.html")
+            session_context['back_ref'] = '/settings?menu=clients'
+        elif menu == 'ktree':
+            tmpl = lookup.get_template("settings_dashboard.html")
+            session_context['back_ref'] = '/settings?menu=ktree'
+
+        session_context = get_session_context(cherrypy.request.login)
+        params = cherrypy.request.headers
+
+        return tmpl.render(params = params, session_context = session_context, menu=menu)
 
     @cherrypy.expose
     def open(self):
@@ -795,26 +873,23 @@ class Root(object):
 
 def get_session_context(login):
     context = cherrypy.session.get('session_context')
+    #print "user login : %s" % login
     user = rwObjects.get_employee_by_login(login)
+    #print "user attrs: %s" % user.get_attrs()
     for key in user.get_attrs():
         context[key] = user.__dict__[key]
     
     context['company'] = rwObjects.get_company_by_id(user.comp_id).name
     context['company_uuid'] = rwObjects.get_company_by_id(user.comp_id).uuid
     context['company_prefix'] = rwObjects.get_company_by_id(user.comp_id).prefix    
-    context['groups'] = None
+    context['groups'] = list()
     context['back_ref'] = "/"
     context['username'] = context['login'].split("@",1)[0]
 
-    
-    
     for group in ['admin','users']:
-        if member_of(group):
-            if context['groups']:
-                context['groups'] = context['groups'] + "," + group
-            else:
-                context['groups'] = group                
-    
+        if member_of(group)():
+            context['groups'].append(group)
+
     cherrypy.session['session_context'] = context
 
     return context

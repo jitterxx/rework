@@ -1,16 +1,17 @@
-<%inherit file="page_structure.html"/>
+<%inherit file="settings_page_structure.html"/>
 
 <%block name="title">
-    <title>Сорудники ${session_context["company"]}</title>
+    <title>Сорудники и аккаунты ${session_context["company"]}</title>
     <link href="/static/css/dashboard.css" rel="stylesheet">
 
 </%block>
 
     <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
-        <h1 class="page-header"> Сотрудники ${session_context["company"]}</h1>
+        % if 'admin' in session_context['groups']:
         <h2 class="sub-header">
-        <a class="btn btn-primary" role="button" href="add">Добавить сотрудника</a>        
+        <a class="btn btn-primary" role="button" href="/employee/add">Добавить сотрудника</a>
         </h2>
+        % endif
         <div class="panel-group" id="accordion" role="tablist" aria-multiselectable="true">
             % for user in obj:
             <div class="panel panel-default">

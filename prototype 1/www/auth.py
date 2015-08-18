@@ -93,15 +93,15 @@ def require(*conditions):
 def member_of(groupname):
     def check():
         # replace with actual check if <username> is in <groupname>
+        admin_names = ['superuser@flw']
+        users_names = ['superuser@flw','ivan@flw']
+
         c = False
-        if cherrypy.request.login in admin_names and groupname == 'admin':
+        if groupname == 'admin' and cherrypy.request.login in admin_names:
             c = True
-        if cherrypy.request.login in users_names and groupname == 'users':
+        if groupname == 'users' and cherrypy.request.login in users_names:
             c = True
         return c
-
-    admin_names = ['superuser@flw']
-    users_names = ['superuser@flw']
 
     return check
 

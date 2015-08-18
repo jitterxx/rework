@@ -1638,6 +1638,9 @@ def set_by_uuid(uuid, data):
 
     keys = data.keys()
 
+    if obj.__tablename__ == 'accounts':
+        data['dirs'] = obj.DIRS[data['dirs']]
+
     s = s + "\n set_by_uuid KEYS: " + str(keys)
 
     try:
@@ -1724,9 +1727,11 @@ def create_new_object(session, object_type, params, source):
         new_obj.comp_id = params['comp_id']
     elif object_type == "accounts":
         new_obj = Account()
+        params['dirs'] = new_obj.DIRS[params['dirs']]
         for f in new_obj.ADD_FIELDS:
             if params[f] != "":
                 new_obj.__dict__[f] = params[f]
+
     elif object_type == "knowledge_tree":
         new_obj = KnowledgeTree()
         # создаем классификатор
