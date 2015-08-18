@@ -450,12 +450,13 @@ class Timeline(object):
         events = session.query(rwObjects.Reference).filter(rwObjects.Reference.link == 1).\
                     order_by(rwObjects.desc(rwObjects.Reference.timestamp)).all()
         obj_keys = events[0].get_attrs()
-        f = events[0].get_fields()
+        fields = events[0].get_fields()
         actors = {}
         
         for event in events:
-            print event.source_uuid
-            print event.target_uuid
+            event.read(session)
+            #print "Source UUID : %s" % event.source_uuid
+            #print "Target UUID : %s" % event.target_uuid
             try:        
                 obj = rwObjects.get_by_uuid(event.source_uuid)[0]
             except Exception as e:
@@ -464,9 +465,8 @@ class Timeline(object):
                 raise cherrypy.HTTPRedirect(session_context['back_ref'])
             else:
                 if event.source_uuid not in actors.keys():
-                    actors[event.source_uuid] = [obj.NAME]
-                    for f in obj.SHORT_VIEW_FIELDS:
-                        actors[event.source_uuid].append(obj.__dict__[f])
+                    actors[event.source_uuid] = obj
+                    print actors[event.source_uuid]
 
             try:        
                 obj = rwObjects.get_by_uuid(event.target_uuid)[0]
@@ -476,14 +476,16 @@ class Timeline(object):
                 raise cherrypy.HTTPRedirect(session_context['back_ref'])
             else:
                 if event.target_uuid not in actors.keys():
-                    actors[event.target_uuid] = [obj.NAME]
-                    for f in obj.SHORT_VIEW_FIELDS:
-                        actors[event.target_uuid].append(obj.__dict__[f])
+                    actors[event.target_uuid] = obj
+                    print actors[event.target_uuid]
+
+        #print "events[0].get_fields() : %s" % fields
+        #print "obj_keys : %s " % obj_keys
 
         return tmpl.render(obj = events,keys = obj_keys,
                            session_context = session_context,
-                           all_f = f[0],
-                           view_f = f[1],
+                           all_f = fields[0],
+                           view_f = fields[1],
                            actors = actors)
 
 

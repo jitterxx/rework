@@ -359,6 +359,20 @@ class Company(Base, rw_parent):
     def __init__(self):
         self.uuid = uuid.uuid1()
 
+    def read(self, session):
+        """
+
+        :param session:
+        :return:
+        """
+
+        self.NAME = "Компания"
+        self.EDIT_FIELDS = ['name', 'prefix']
+        self.ALL_FIELDS = {'name': 'Имя', 'prefix': 'домен', 'uuid': 'Идентификатор', 'id': 'id'}
+        self.VIEW_FIELDS = ['name', 'prefix']
+        self.SHORT_VIEW_FIELDS = ['name']
+        self.ADD_FIELDS = ['name', 'prefix']
+
     def check(self):
         """
         Проверка на существование компании с таким именем или префиксом.
@@ -399,6 +413,7 @@ def get_company_by_id(cid):
 
     session = Session()
     company = session.query(Company).filter_by(id=cid).first()
+    company.read(session)
     session.close()
     return company
 
@@ -442,6 +457,18 @@ class Employee(Base, rw_parent):
     def __init__(self):
         self.uuid = uuid.uuid1()
 
+    def read(self,sesssion):
+
+        self.EDIT_FIELDS = ['name', 'surname', 'password']
+        self.ALL_FIELDS = {'name': 'Имя', 'surname': 'Фамилия',
+                           'login': 'Логин', 'password': 'Пароль',
+                           'comp_id': 'Компания', 'id': 'id', 'uuid': 'uuid'}
+        self.VIEW_FIELDS = ['name', 'surname', 'login', 'password']
+        self.SHORT_VIEW_FIELDS = ['name', 'surname']
+        self.ADD_FIELDS = ['name', 'surname', 'login', 'password']
+        self.NAME = "Сотрудник"
+
+
     def check(self):
         """
         Проверка на существование пользователя с таким login.
@@ -482,7 +509,7 @@ def get_employee_by_login(login):
 
     try:
         user = session.query(Employee).filter(Employee.login == login).one()
-    except  sqlalchemy.orm.exc.NoResultFound:
+    except sqlalchemy.orm.exc.NoResultFound:
         print "Пользователь не найден"
         return None
     except sqlalchemy.orm.exc.MultipleResultsFound:
@@ -491,6 +518,7 @@ def get_employee_by_login(login):
         return None
     else:
         print "Пользователь найден"
+        user.read(session)
         return user
 
     session.close()
@@ -569,6 +597,28 @@ class Account(Base, rw_parent):
         self.password = ""
         self.dirs = self.DIRS["Gmail"]
         self.last_check = datetime.datetime.now()
+
+    def read(self,session):
+
+        self.DIRS = {'Yandex': '{"inbox": "INBOX", "sent": "&BB4EQgQ,BEAEMAQyBDsENQQ9BD0ESwQ1-"}',
+                     'Gmail': '{"inbox":"INBOX","sent":"[Gmail]/&BB4EQgQ,BEAEMAQyBDsENQQ9BD0ESwQ1-"}'}
+
+        self.ALL_FIELDS = {"id": "id",
+                           "uuid": "Идентификатор",
+                           "acc_type": "Тип аккаунта",
+                           "description": "Описание",
+                           "server": "Имя сервера",
+                           "port": "Порт",
+                           "login": "Логин",
+                           "password": "Пароль",
+                           "dirs": "Каталоги для проверки",
+                           "last_check": "Дата и время последней проверки",
+                           "employee_id": "Связан с сотрудником"}
+        self.VIEW_FIELDS = ['acc_type', 'description', 'server', 'port', 'dirs', 'login', 'password', 'last_check']
+        self.ADD_FIELDS = ['acc_type', 'description', 'server', 'port', 'dirs', 'login', 'password']
+        self.EDIT_FIELDS = ['description', 'server', 'port', 'dirs', 'login', 'password']
+        self.SHORT_VIEW_FIELDS = ['login', 'acc_type', 'description']
+        self.NAME = "Аккаунт"
 
 
 class Client(Base, rw_parent):
@@ -676,6 +726,32 @@ class Reference(Base, rw_parent):
 
         return r_status
 
+    def read(self, session):
+        """
+
+        """
+
+        self.__dict__['obj_type'] = self.__tablename__
+
+        # Ищем Custom узлы ДЗ к которым относиться объект
+        self.__dict__['custom_category'] = list()
+        self.__dict__['system_category'] = list()
+
+        self.NAME = "Событие"
+
+        self.EDIT_FIELDS = []
+        self.ALL_FIELDS = {'id': 'id',
+                            'source_uuid': 'Кто',
+                            'source_type': 'Тип',
+                            'source_id': 'id',
+                            'target_uuid': 'С чем',
+                            'target_type': 'Тип',
+                            'target_id': 'id',
+                            'link': 'Связь',
+                            'timestamp': 'Время'}
+        self.VIEW_FIELDS = ['timestamp', 'source_uuid', 'link', 'target_uuid']
+        self.ADD_FIELDS = []
+        self.SHORT_VIEW_FIELDS = ['timestamp', 'source_uuid', 'link', 'target_uuid']
 
 """
 Бизнес объекты
@@ -1160,6 +1236,12 @@ class Classifier(Base, rw_parent):
         self.clf_path = LEARN_PATH + str(self.uuid) + str("_classifier.joblib.pkl")
         self.vec_path = LEARN_PATH + str(self.uuid) + str("_vectorizer.joblib.pkl")
 
+    def read(self, session):
+        self.NAME = "Классификатор"
+        self.ALL_FIELDS = {'description': 'Описание',
+                           'id': 'id', 'uuid': 'Идентификатор'}
+        self.VIEW_FIELDS = ['description']
+        self.SHORT_VIEW_FIELDS = ['description']
 
 class ClassificationResult(Base, rw_parent):
     """
@@ -1271,6 +1353,18 @@ class KnowledgeTree(Base, rw_parent):
 
     def __init__(self):
         self.uuid = uuid.uuid1()
+
+    def read(self, session):
+        self.NAME = "Тема Навигатора Знаний"
+        self.EDIT_FIELDS = ['name', 'description', 'tags', 'expert']
+        self.ALL_FIELDS = {'name': 'Название', 'description': 'Описание',
+                           'tags': 'Теги', 'expert': 'Ответственный',
+                           'id': 'id', 'uuid': 'Идентификатор',
+                           'parent_id': 'Родительский раздел', 'tags_clf': 'tags_clf',
+                           'objects_class': 'Автоматически привязываются', 'type': 'Тип узла'}
+        self.VIEW_FIELDS = ['name', 'description', 'tags', 'expert']
+        self.SHORT_VIEW_FIELDS = ['name', 'description', 'expert']
+        self.ADD_FIELDS = ['type', 'parent_id', 'name', 'description', 'tags', 'expert', 'objects_class']
 
     def get_objects_classes(self):
         """
