@@ -19,7 +19,7 @@
         <form method="post" action="savelink">
             <input type="hidden" name="object_type" value="${obj.__tablename__}">
             <input type="hidden" name="category_type" value="knowledge_tree">
-            <p><select class="form-control" name="category_uuid">
+            <p><select multiple class="form-control" name="category_uuid">
               % for one in category.values():
                 ${one.ALL_FIELDS['name']} <option value="${one.__dict__['uuid']}"> ${one.__dict__['name']} </option>
               % endfor

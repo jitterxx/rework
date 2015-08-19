@@ -107,7 +107,11 @@ def get_messages_for_account(account_uuid):
         print "Аккаунт %s отключен." % account_uuid
 
     account.last_check = datetime.now()
+    session.add(account)
     session.commit()
+
+    print "Время последней проверки : %s" % account.last_check
+
     session.close()
 
     return "OK."

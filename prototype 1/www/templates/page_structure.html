@@ -35,10 +35,35 @@
 <%block name="menu">
     <div class="col-sm-3 col-md-2 sidebar">
       <ul class="nav nav-sidebar">
-        <li class="active"><a href="/">Главная <span class="sr-only">(current)</span></a></li>
-        <li><a href="/clients">Клиенты</a></li>
-        <li><a href="/timeline">События</a></li>
-        <li><a href="/ktree">Навигатор Знаний</a></li>
+        % if session_context['menu'] in ['accounts','employee','settings','show_object','edit_object','add_object',\
+        'ktree_category','ktree_settings']:
+        <li><a href="/">На главную<span class="sr-only">(current)</span></a></li>
+        % endif
+        % if session_context['menu'] in ['accounts','employee','ktree_category','ktree_settings']:
+        <li><a href="${session_context['back_ref']}">Назад<span class="sr-only">(current)</span></a></li>
+        % endif
+        % if session_context['menu'] in ['main','clients','timeline','ktree']:
+        <li
+          % if session_context['menu'] == 'main':
+            class="active"
+          % endif
+          ><a href="/">Главная <span class="sr-only">(current)</span></a></li>
+        <li
+          % if session_context['menu'] == 'clients':
+            class="active"
+          % endif
+          ><a href="/clients">Клиенты</a></li>
+        <li
+          % if session_context['menu'] == 'timeline':
+            class="active"
+          % endif
+          ><a href="/timeline">События</a></li>
+        <li
+          % if session_context['menu'] == 'ktree':
+            class="active"
+          % endif
+          ><a href="/ktree">Навигатор Знаний</a></li>
+        % endif
       </ul>
     </div>
 </%block>

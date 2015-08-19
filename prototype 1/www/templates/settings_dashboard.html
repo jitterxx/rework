@@ -1,4 +1,4 @@
-<%inherit file="settings_page_structure.html"/>
+<%inherit file="page_structure.html"/>
 
 <%block name="title">
     <title>Главная</title>
@@ -13,7 +13,7 @@
 
         % if 'admin' in session_context['groups']:
           <li><a href="/settings?menu=employee">Сотрудники и аккаунты<span class="sr-only">(current)</span></a></li>
-          <li><a href="/settings?menu=company">Компания</a></li>
+          <li><a href="/object/${session_context['company_uuid']}">Компания</a></li>
 
           <li><a href="/settings?menu=clients">Клиенты</a></li>
           <li><a href="/settings?menu=ktree">Навигатор Знаний</a></li>
@@ -22,33 +22,5 @@
         % endif
 
       </ul>
-
-    <br><br><br><br>
-    <h1 class="page-header">Параметры пользователя</h1>
-        <div class="table-responsive">
-            <table class="table table-striped">
-              <thead>
-                <tr>
-                  <th>Header</th>
-                  <th>Header</th>
-                </tr>
-              </thead>
-              <tbody>
-                % for i in session_context.keys():
-                  <tr>
-                  <td>${i}</td>
-                  <td>${session_context[i]}</td>
-                  </tr>
-                % endfor
-                % for i in params.keys():
-                  <tr>
-                  <td>${i}</td>
-                  <td>${params[i]}</td>
-                  </tr>
-                % endfor
-
-              </tbody>
-            </table>
-        </div>
 
     </div>

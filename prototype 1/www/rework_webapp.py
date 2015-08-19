@@ -56,8 +56,19 @@ class EditObject():
             tmpl = lookup.get_template("edit_object.html")                    
             obj_keys = obj.get_attrs()
             f = obj.get_fields()
+            session_context = cherrypy.session.get('session_context')
+
+            print "session_context['menu'] : %s " % session_context['menu']
+
+            if session_context['menu'] in ['accounts','employee']:
+                session_context['back_ref'] = "/settings/?menu=" + session_context['menu']
+            if session_context['menu'] == 'settings':
+                session_context['back_ref'] = "/settings"
+
+            session_context['menu'] = "edit_object"
+
             return tmpl.render(obj = obj,keys = obj_keys,
-                               session_context = cherrypy.session.get('session_context'),
+                               session_context=session_context,
                                 all_f=f[0],view_f=f[1],edit_f=f[2])
 
     
@@ -78,8 +89,16 @@ class ShowObject():
         else:
             obj_keys = obj.get_attrs()
             f = obj.get_fields()
-            return tmpl.render(obj = obj,keys = obj_keys,
-                               session_context = cherrypy.session.get('session_context'),
+            session_context = cherrypy.session.get('session_context')
+            print "session_context['menu'] : %s " % session_context['menu']
+            if session_context['menu'] in ['accounts','employee']:
+                session_context['back_ref'] = "/settings/?menu=" + session_context['menu']
+            if session_context['menu'] == 'settings':
+                session_context['back_ref'] = "/settings"
+
+            session_context['menu'] = "show_object"
+            return tmpl.render(obj = obj,keys=obj_keys,
+                               session_context=session_context,
                                 all_f = f[0],
                                 view_f = f[1])
         
@@ -134,26 +153,35 @@ class LinkObject(object):
                            session_context = cherrypy.session.get('session_context'))
 
     @cherrypy.expose
-    def savelink(self, object_uuid, object_type,category_uuid,category_type):
+    def savelink(self, object_uuid, object_type,category_type,category_uuid=None):
         data = cherrypy.request.params
         session_context = cherrypy.session.get('session_context')
         url = session_context['back_ref']
+
+        if not category_uuid:
+                print "Не указана категория."
+                raise cherrypy.HTTPRedirect(url)
+
+        if not isinstance(category_uuid, list):
+            category_uuid = [category_uuid]
 
         print "Obj UUID: ",object_uuid
         print "Obj type: ",object_type
         print "Category uuid:",category_uuid
         print "Category type:",category_type
+
         session = rwObjects.Session()
-        try:
-            st = rwObjects.link_objects(session,category_uuid,object_uuid)
-        except Exception as e:
-            print "Проблемы при связывании..."
-            print e
-            pass
-        else:
-            print "Связывание прошло успешно."
-            print st[0]
-            print st[1]
+        for category in category_uuid:
+            try:
+                st = rwObjects.link_objects(session,category,object_uuid)
+            except Exception as e:
+                print "Проблемы при связывании..."
+                print e
+                pass
+            else:
+                print "Связывание прошло успешно."
+                print st[0]
+                print st[1]
 
         try:
             st = rwLearn.clear_autoclassify(session,object_uuid)
@@ -412,6 +440,7 @@ class Clients(object):
         tmpl = lookup.get_template("clients.html")
         session_context = cherrypy.session.get('session_context')
         session_context['back_ref'] = '/clients'
+        session_context['menu'] = 'clients'
         session = rwObjects.Session()
         objs = session.query(rwObjects.Client).all()
         obj_keys = []
@@ -462,6 +491,7 @@ class Timeline(object):
         tmpl = lookup.get_template("timeline.html")
         session_context = cherrypy.session.get('session_context')
         session_context['back_ref'] = '/timeline'
+        session_context['menu'] = 'timeline'
         cherrypy.session['session_context'] = session_context
         session = rwObjects.Session()
         events = session.query(rwObjects.Reference).filter(rwObjects.Reference.link == 1).\
@@ -537,6 +567,7 @@ class KTree(object):
         tree = rwObjects.KnowledgeTree()
         session_context = cherrypy.session.get('session_context')
         session_context['back_ref'] = '/ktree'
+        session_context['menu'] = 'ktree'
         cherrypy.session['session_context'] = session_context
 
         return tmpl.render(obj = tree, session = session,
@@ -626,6 +657,7 @@ class KTree(object):
         session.close()
         raise cherrypy.HTTPRedirect("/ktree")
 
+
 class ShowKTreeCategory(object):
 
     @cherrypy.expose
@@ -633,7 +665,16 @@ class ShowKTreeCategory(object):
 
         tmpl = lookup.get_template("ktree_show_category.html")
         session_context = cherrypy.session.get('session_context')
-        session_context['back_ref'] = '/ktree/'+str(category_uuid)
+        session_context['back_ref'] = '/ktree'
+        session_context['menu'] = 'ktree_category'
+        if session_context['menu'] == 'ktree_category':
+            session_context['back_ref'] = '/ktree/' + str(category_uuid)
+            session_context['menu'] = 'ktree_category'
+
+        if session_context['menu'] == 'ktree_settings':
+            session_context['back_ref'] = '/settings?menu=ktree'
+            session_context['menu'] = 'ktree_settings'
+
         cherrypy.session['session_context'] = session_context
 
         print category_uuid
@@ -721,9 +762,6 @@ class Any_object(object):
         raise cherrypy.HTTPRedirect("/")
 
 
-
-    
-
 class RestrictedArea:
     
     # all methods in this controller (and subcontrollers) is
@@ -765,6 +803,14 @@ class Root(object):
         return tmpl.render(params = params, session_context = c)
     
     @cherrypy.expose
+    @require(member_of("admin"))
+    def autoclassify_all_notlinked_objects(self):
+
+        rwLearn.autoclassify_all_notlinked_objects()
+
+        raise cherrypy.HTTPRedirect("/settings?menu=ktree")
+
+    @cherrypy.expose
     @require(member_of("users"))
     def graph(self,link):
         tmpl = lookup.get_template("graph.html")
@@ -798,13 +844,19 @@ class Root(object):
     @require(member_of("users"))
     def settings(self,menu=None):
         session_context = cherrypy.session.get('session_context')
-        if not menu:
+        if not menu or menu == "":
             tmpl = lookup.get_template("settings_dashboard.html")
-            menu = ""
-            session_context['back_ref'] = '/settings'
+            session_context['back_ref'] = '/'
+            session_context['menu'] = "settings"
+            params = cherrypy.request.headers
+            cherrypy.session['session_context'] = session_context
+            return tmpl.render(params = params, session_context = session_context)
+
         elif menu == 'company':
             tmpl = lookup.get_template("settings_dashboard.html")
-            session_context['back_ref'] = '/settings?menu=company'
+            session_context['back_ref'] = '/settings'
+            session_context['menu'] = "company"
+
         elif menu == 'employee' or menu == 'accounts':
             tmpl = lookup.get_template("employee.html")
             session = rwObjects.Session()
@@ -815,13 +867,16 @@ class Root(object):
                     filter_by(comp_id = session_context['comp_id']).all()
                 obj_keys = users[0].get_attrs()
                 f = users[0].get_fields()
-                session_context['back_ref'] = '/settings?menu=employee'
+                session_context['back_ref'] = '/settings'
+                session_context['menu'] = "employee"
+
             # если пользователь с обычными правами, только свой профиль
             else:
                 users = [rwObjects.get_by_uuid(session_context['uuid'])[0]]
                 obj_keys = users[0].get_attrs()
                 f = users[0].get_fields()
-                session_context['back_ref'] = '/settings?menu=accounts'
+                session_context['back_ref'] = '/settings'
+                session_context['menu'] = "accounts"
 
             linked_objects = dict()
             for user in users:
@@ -835,21 +890,29 @@ class Root(object):
                     linked_objects[user.uuid].append(rwObjects.get_by_uuid(ref.target_uuid)[0])
 
             session.close()
-
+            cherrypy.session['session_context'] = session_context
             return tmpl.render(obj=users,keys=obj_keys, session_context=session_context,
                                view_f=f[1], all_f=f[0], linked=linked_objects)
 
         elif menu == 'clients':
             tmpl = lookup.get_template("settings_dashboard.html")
             session_context['back_ref'] = '/settings?menu=clients'
+
         elif menu == 'ktree':
+            tmpl = lookup.get_template("ktree_settings.html")
+            session = rwObjects.Session()
+            tree = rwObjects.KnowledgeTree()
+            session_context['back_ref'] = '/settings'
+            session_context['menu'] = "ktree_settings"
+            return tmpl.render(obj=tree, session=session,
+                               session_context=session_context)
+        else:
+            print "меню без указания."
             tmpl = lookup.get_template("settings_dashboard.html")
-            session_context['back_ref'] = '/settings?menu=ktree'
-
-        session_context = get_session_context(cherrypy.request.login)
-        params = cherrypy.request.headers
-
-        return tmpl.render(params = params, session_context = session_context, menu=menu)
+            session_context['back_ref'] = '/settings'
+            session_context['menu'] = "settings"
+            params = cherrypy.request.headers
+            return tmpl.render(params = params, session_context = session_context)
 
     @cherrypy.expose
     def open(self):
@@ -882,6 +945,7 @@ def get_session_context(login):
     context['company_prefix'] = rwObjects.get_company_by_id(user.comp_id).prefix    
     context['groups'] = list()
     context['back_ref'] = "/"
+    context['menu'] = "main"
     context['username'] = context['login'].split("@",1)[0]
 
     for group in ['admin','users']:
