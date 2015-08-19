@@ -35,14 +35,8 @@
 <%block name="menu">
     <div class="col-sm-3 col-md-2 sidebar">
       <ul class="nav nav-sidebar">
-        % if 'admin' in session_context['groups']:
-          <li><a href="/settings?menu=employee">Сотрудники и аккаунты<span class="sr-only">(current)</span></a></li>
-          <li><a href="/settings?menu=company">Компания</a></li>
-          <li><a href="/settings?menu=clients">Клиенты</a></li>
-          <li><a href="/settings?menu=ktree">Навигатор Знаний</a></li>
-        % else:
-          <li><a href="/settings?menu=accounts">Аккаунты<span class="sr-only">(current)</span></a></li>
-        % endif
+        <li><a href="${session_context['back_ref']}">Назад<span class="sr-only">(current)</span></a></li>
+
       </ul>
     </div>
 </%block>

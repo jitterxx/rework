@@ -433,6 +433,8 @@ class Employee(Base, rw_parent):
     :parameter password: пароль пользователя (sqlalchemy.Column(sqlalchemy.String(20)))
     :parameter comp_id: ид компании (Column(Integer, ForeignKey('companies.id')))
     :parameter accounts: связь с полем employee_id в классе Account (relationship("Account", backref="employees"))
+    :parameter disabled: индикатор использования аккаунта пользователя(0 - используется, 1 - отключен \
+    (sqlalchemy.Column(sqlalchemy.Integer))
     """
 
     EDIT_FIELDS = ['name', 'surname', 'password']
@@ -442,6 +444,8 @@ class Employee(Base, rw_parent):
     VIEW_FIELDS = ['name', 'surname', 'login', 'password']
     ADD_FIELDS = ['name', 'surname', 'login', 'password']
     NAME = "Сотрудник"
+
+    STATUS = {0: 'Используется', 1: 'Не используется'}
 
     __tablename__ = 'employees'
 
@@ -453,17 +457,19 @@ class Employee(Base, rw_parent):
     password = sqlalchemy.Column(sqlalchemy.String(20))
     comp_id = Column(Integer, ForeignKey('companies.id'))
     accounts = relationship("Account", backref="employees")
+    disabled = Column(Integer, default=0)
 
     def __init__(self):
         self.uuid = uuid.uuid1()
 
     def read(self,sesssion):
 
-        self.EDIT_FIELDS = ['name', 'surname', 'password']
+        self.EDIT_FIELDS = ['name', 'surname', 'password','disabled']
         self.ALL_FIELDS = {'name': 'Имя', 'surname': 'Фамилия',
                            'login': 'Логин', 'password': 'Пароль',
-                           'comp_id': 'Компания', 'id': 'id', 'uuid': 'uuid'}
-        self.VIEW_FIELDS = ['name', 'surname', 'login', 'password']
+                           'comp_id': 'Компания', 'id': 'id', 'uuid': 'uuid',
+                           'disabled':'Статус'}
+        self.VIEW_FIELDS = ['name', 'surname', 'login', 'password','disabled']
         self.SHORT_VIEW_FIELDS = ['name', 'surname']
         self.ADD_FIELDS = ['name', 'surname', 'login', 'password']
         self.NAME = "Сотрудник"
@@ -544,6 +550,8 @@ class Account(Base, rw_parent):
     поддржка сервисов Gmail, Yandex.
     :parameter last_check: время последней проверки (Column(sqlalchemy.DATETIME(), default=datetime.datetime.now()))
     :parameter employee_id: ссылка на ИД сотрудника, владельца ящика (Column(Integer, ForeignKey('employees.id')))
+    :parameter disabled: индикатор использования аккаунта (0 - используется, 1 - отключен, 2 - архивный) \
+    (sqlalchemy.Column(sqlalchemy.Integer))
 
     Список постоянных свойств класса:
 
@@ -556,6 +564,8 @@ class Account(Base, rw_parent):
     DIRS = {'Yandex': '{"inbox": "INBOX", "sent": "&BB4EQgQ,BEAEMAQyBDsENQQ9BD0ESwQ1-"}',
             'Gmail': '{"inbox":"INBOX","sent":"[Gmail]/&BB4EQgQ,BEAEMAQyBDsENQQ9BD0ESwQ1-"}'}
 
+    STATUS = {0: 'Используется', 1: 'Не используется', 2: 'Архивный'}
+
     ALL_FIELDS = {
         "id": "id",
         "uuid": "Идентификатор",
@@ -567,11 +577,12 @@ class Account(Base, rw_parent):
         "password": "Пароль",
         "dirs": "Каталоги для проверки",
         "last_check": "Дата и время последней проверки",
-        "employee_id": "Связан с сотрудником"
+        "employee_id": "Связан с сотрудником",
+        "disabled": "Статус"
     }
-    VIEW_FIELDS = ['acc_type', 'description', 'server', 'port', 'dirs', 'login', 'password', 'last_check']
+    VIEW_FIELDS = ['acc_type', 'description', 'server', 'port', 'dirs', 'login', 'password', 'last_check','disabled']
     ADD_FIELDS = ['acc_type', 'description', 'server', 'port', 'dirs', 'login', 'password']
-    EDIT_FIELDS = ['description', 'server', 'port', 'dirs', 'login', 'password']
+    EDIT_FIELDS = ['description', 'server', 'port', 'dirs', 'login', 'password','disabled']
     SHORT_VIEW_FIELDS = ['login', 'acc_type', 'description']
     NAME = "Аккаунт"
 
@@ -586,6 +597,7 @@ class Account(Base, rw_parent):
     dirs = Column(sqlalchemy.String(256), default=DIRS["Gmail"])
     last_check = Column(sqlalchemy.DATETIME(), default=datetime.datetime.now())
     employee_id = Column(Integer, ForeignKey('employees.id'))
+    disabled = Column(Integer, default=0)
 
     def __init__(self):
         self.uuid = uuid.uuid1()
@@ -598,6 +610,7 @@ class Account(Base, rw_parent):
         self.dirs = self.DIRS["Gmail"]
         self.last_check = datetime.datetime.now()
 
+    """
     def read(self,session):
 
         self.DIRS = {'Yandex': '{"inbox": "INBOX", "sent": "&BB4EQgQ,BEAEMAQyBDsENQQ9BD0ESwQ1-"}',
@@ -619,7 +632,7 @@ class Account(Base, rw_parent):
         self.EDIT_FIELDS = ['description', 'server', 'port', 'dirs', 'login', 'password']
         self.SHORT_VIEW_FIELDS = ['login', 'acc_type', 'description']
         self.NAME = "Аккаунт"
-
+"""
 
 class Client(Base, rw_parent):
     __tablename__ = 'clients'
@@ -1624,9 +1637,8 @@ def set_by_uuid(uuid, data):
     try:
         obj_class = get_by_uuid(uuid)[0].__class__
     except Exception as e:
-        print e[0]
-        print e[1]
-        raise Exception(e[0], e[1])
+        print str(e)
+        raise Exception(e)
     else:
         pass
 
@@ -1638,8 +1650,12 @@ def set_by_uuid(uuid, data):
 
     keys = data.keys()
 
+    """
+    Если во время сохранения надо заменить или раскрытьполя объекта, это делается тут.
+    """
     if obj.__tablename__ == 'accounts':
-        data['dirs'] = obj.DIRS[data['dirs']]
+        if 'dirs' in data.keys():
+            data['dirs'] = obj.DIRS[data['dirs']]
 
     s = s + "\n set_by_uuid KEYS: " + str(keys)
 

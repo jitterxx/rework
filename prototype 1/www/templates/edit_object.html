@@ -31,6 +31,19 @@
                                   <option value="${d}">${d}</option>
                                  % endfor
                                  </select>
+                             % elif key == 'disabled' and obj.uuid == session_context['uuid']:
+                                ${obj.STATUS[obj.__dict__[key]]}
+                                <span class="label label-warning">Вы не можете изменить статус своего пользователя.</span>
+                             % elif key == 'disabled':
+                                 <select class="form-control" name="disabled">
+                                 % for d in obj.STATUS.keys():
+                                     % if d == obj.__dict__[key]:
+                                        <option selected value="${d}">${obj.STATUS[d]}</option>
+                                     % else:
+                                        <option value="${d}">${obj.STATUS[d]}</option>
+                                     % endif
+                                 % endfor
+                                 </select>
                              % else:
                              <input type="text" value="${obj.__dict__[key]}" name=${key} />
                              % endif
@@ -39,7 +52,7 @@
                     	</tr>
                     % endif
                 % endfor
-                 <input type="hidden" value="${obj.__dict__['uuid']}" name="uuid" />
+
                 	 <tr>
                 	 <td><a class="btn btn-primary" role="button" href="${session_context["back_ref"]}">Назад</a></td>
                 	 <td><button class="btn btn-success" type="submit">Записать</button></td>

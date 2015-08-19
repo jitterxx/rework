@@ -21,7 +21,15 @@
                 % for key in view_f:
                   <tr>
                       <td>${all_f[key]}</td>
-                      <td>${obj.__dict__[key]}</td>
+                      <td>
+                         %if key == 'dirs':
+                            INBOX, SENT
+                         % elif key == 'disabled':
+                            ${obj.STATUS[obj.__dict__[key]]}
+                         % else:
+                            ${obj.__dict__[key]}
+                         % endif
+                      </td>
                   </tr>
                 % endfor
                 	 <tr>

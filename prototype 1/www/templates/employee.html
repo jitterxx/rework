@@ -9,11 +9,13 @@
     <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
         % if 'admin' in session_context['groups']:
         <h2 class="sub-header">
-        <a class="btn btn-primary" role="button" href="/employee/add">Добавить сотрудника</a>
+            <a class="btn btn-primary" role="button" href="/employee/add">Добавить сотрудника</a>
         </h2>
+        <h3 class="sub-header">Активные</h3>
         % endif
         <div class="panel-group" id="accordion" role="tablist" aria-multiselectable="true">
             % for user in obj:
+            % if user.disabled == 0:
             <div class="panel panel-default">
                 <div class="panel-heading" role="tab" id="heading_${user.id}">
                   <h4 class="panel-title">
@@ -23,10 +25,14 @@
                         ${user.name} ${user.surname}
                     </a>&nbsp;&nbsp;
                     <a href="/object/${user.__dict__['uuid']}/edit"><span class="glyphicon glyphicon-edit" aria-hidden="true"></span></a>
+                    % if 'admin' in session_context['groups']:
+                      <a href="/object/${user.__dict__['uuid']}/save?disabled=1"><span class="glyphicon glyphicon-off"
+                                                                             aria-hidden="true"></span></a>
+                    % endif
                   </h4>
                 </div>
                 <div id="collapse_${user.id}" class="panel-collapse collapse" role="tabpanel" aria-labelledby="heading_${user.id}">
-                  <div class="panel-body">
+                  <dl class="panel-body">
                       <p>
                       <a class="btn btn-default btn-xs" href="/account/add?employee_uuid=${user.__dict__['uuid']}">
                           <span class="glyphicon glyphicon-plus" aria-hidden="true"></span></a>
@@ -34,21 +40,152 @@
                       <p>
                       % if linked[user.uuid]:
                         <ul class="list-unstyled">
+                      <dl>
+                      <dt>Активные</dt>
+                      <dd>
                         % for link in linked[user.uuid]:
                             <p>
-                            ${link.description} - ${link.login}
-                            <a class="btn btn-default btn-xs" href="/object/${link.uuid}">
-                            <span class="glyphicon glyphicon-edit" aria-hidden="true"></span></a>
+                            % if link.disabled == 0:
+                                ${link.description} - ${link.login}
+                                <a class="btn btn-default btn-xs" href="/object/${link.uuid}/edit">
+                                <span class="glyphicon glyphicon-edit" aria-hidden="true"></span></a>
+                                <a class="btn btn-default btn-xs" href="/object/${link.uuid}/save?disabled=1">
+                                <span class="glyphicon glyphicon-off" aria-hidden="true"></span></a>
+                            % endif
                             </p>
                         % endfor
+                      </dd>
+                      <dt>Отключенные</dt>
+                      <dd>
+                        % for link in linked[user.uuid]:
+                            <p>
+                            % if link.disabled == 1:
+                                ${link.description} - ${link.login}
+                                <a class="btn btn-default btn-xs" href="/object/${link.uuid}/edit">
+                                <span class="glyphicon glyphicon-edit" aria-hidden="true"></span></a>
+                                <a class="btn btn-default btn-xs" href="/object/${link.uuid}/save?disabled=0">
+                                <span class="glyphicon glyphicon-upload" aria-hidden="true"></span></a>
+                            % endif
+                            </p>
+                        % endfor
+                      </dd>
+                          % if 'admin' in session_context['groups']:
+                          <dt>Архивные</dt>
+                          <dd>
+                            % for link in linked[user.uuid]:
+                                <p>
+                                % if link.disabled == 2:
+                                    ${link.description} - ${link.login}
+                                    <a class="btn btn-default btn-xs" href="/object/${link.uuid}/edit">
+                                    <span class="glyphicon glyphicon-edit" aria-hidden="true"></span></a>
+                                    <a class="btn btn-default btn-xs" href="/object/${link.uuid}/save?disabled=0">
+                                    <span class="glyphicon glyphicon-upload" aria-hidden="true"></span></a>
+                                % endif
+                                </p>
+                            % endfor
+                          </dd>
+                          % endif
+
+                      </dl>
                         </ul>
                       % else:
                         No accounts
                       % endif
                       </p>
-                  </div>
+                  </dl>
+
                 </div>
             </div>
+            % endif
             % endfor
+
+            % if 'admin' in session_context['groups']:
+                <h3 class="sub-header">Отключенные</h3>
+            % endif
+            % for user in obj:
+            % if user.disabled == 1:
+            <div class="panel panel-default">
+                <div class="panel-heading" role="tab" id="heading_${user.id}">
+                  <h4 class="panel-title">
+                    <a class="collapsed" role="button" data-toggle="collapse" data-parent="#accordion"
+                       href="#collapse_${user.id}"
+                       aria-expanded="false" aria-controls="collapse_${user.id}">
+                        ${user.name} ${user.surname}
+                    </a>&nbsp;&nbsp;
+                    <a href="/object/${user.__dict__['uuid']}/edit"><span class="glyphicon glyphicon-edit" aria-hidden="true"></span></a>
+                    % if 'admin' in session_context['groups']:
+                      <a href="/object/${user.__dict__['uuid']}/save?disabled=0"><span class="glyphicon glyphicon-off"
+                                                                             aria-hidden="true"></span></a>
+                    % endif
+                  </h4>
+                </div>
+                <div id="collapse_${user.id}" class="panel-collapse collapse" role="tabpanel" aria-labelledby="heading_${user.id}">
+                  <dl class="panel-body">
+                      <p>
+                      <a class="btn btn-default btn-xs" href="/account/add?employee_uuid=${user.__dict__['uuid']}">
+                          <span class="glyphicon glyphicon-plus" aria-hidden="true"></span></a>
+                      </p>
+                      <p>
+                      % if linked[user.uuid]:
+                        <ul class="list-unstyled">
+                      <dl>
+                      <dt>Активные</dt>
+                      <dd>
+                        % for link in linked[user.uuid]:
+                            <p>
+                            % if link.disabled == 0:
+                                ${link.description} - ${link.login}
+                                <a class="btn btn-default btn-xs" href="/object/${link.uuid}/edit">
+                                <span class="glyphicon glyphicon-edit" aria-hidden="true"></span></a>
+                                <a class="btn btn-default btn-xs" href="/object/${link.uuid}/save?disabled=1">
+                                <span class="glyphicon glyphicon-off" aria-hidden="true"></span></a>
+                            % endif
+                            </p>
+                        % endfor
+                      </dd>
+                      <dt>Отключенные</dt>
+                      <dd>
+                        % for link in linked[user.uuid]:
+                            <p>
+                            % if link.disabled == 1:
+                                ${link.description} - ${link.login}
+                                <a class="btn btn-default btn-xs" href="/object/${link.uuid}/edit">
+                                <span class="glyphicon glyphicon-edit" aria-hidden="true"></span></a>
+                                <a class="btn btn-default btn-xs" href="/object/${link.uuid}/save?disabled=2">
+                                <span class="glyphicon glyphicon-upload" aria-hidden="true"></span></a>
+                            % endif
+                            </p>
+                        % endfor
+                      </dd>
+                          % if 'admin' in session_context['groups']:
+                          <dt>Архивные</dt>
+                          <dd>
+                            % for link in linked[user.uuid]:
+                                <p>
+                                % if link.disabled == 2:
+                                    ${link.description} - ${link.login}
+                                    <a class="btn btn-default btn-xs" href="/object/${link.uuid}/edit">
+                                    <span class="glyphicon glyphicon-edit" aria-hidden="true"></span></a>
+                                    <a class="btn btn-default btn-xs" href="/object/${link.uuid}/save?disabled=2">
+                                    <span class="glyphicon glyphicon-upload" aria-hidden="true"></span></a>
+                                % endif
+                                </p>
+                            % endfor
+                          </dd>
+                          % endif
+
+                      </dl>
+                        </ul>
+                      % else:
+                        No accounts
+                      % endif
+                      </p>
+                  </dl>
+
+                </div>
+            </div>
+            % endif
+            % endfor
+
         </div>
     </div>

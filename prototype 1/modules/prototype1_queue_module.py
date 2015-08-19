@@ -25,15 +25,20 @@ app = celery.Celery('tasks', backend='rpc://', broker='amqp://guest@localhost//'
 @app.task()
 def msg_delivery_for_user(uuid):
     session = rwObjects.Session()
-    refs = session.query(rwObjects.Reference). \
-        filter(rwObjects.and_(rwObjects.Reference.source_uuid == uuid,
-                              rwObjects.Reference.target_type == "accounts",
-                              rwObjects.Reference.link == 0)).all()
+    user = rwObjects.get_by_uuid(uuid)[0]
+    if user.disabled != 0:
+        print "Пользователь %s отключен." % user.uuid
+        return "Disabled."
+    else:
+        refs = session.query(rwObjects.Reference). \
+            filter(rwObjects.and_(rwObjects.Reference.source_uuid == uuid,
+                                  rwObjects.Reference.target_type == "accounts",
+                                  rwObjects.Reference.link == 0)).all()
 
-    for acc in refs:
-        # print type(acc)
-        get_messages_for_account.delay(acc.target_uuid)
-    return "OK"
+        for acc in refs:
+            # print type(acc)
+            get_messages_for_account.delay(acc.target_uuid)
+        return "OK"
 
 
 @app.task()
@@ -57,7 +62,7 @@ def get_messages_for_account(account_uuid):
         pass
 
     """Получаем сообщения"""
-    if account.acc_type == 'email':
+    if account.acc_type == 'email' and account.disabled == 0:
         print "Подключаюсь к " + str(account.login) + "..."
         try:
             emails, status = rwEmail.get_emails(account)
@@ -97,6 +102,9 @@ def get_messages_for_account(account_uuid):
                     r_status = ref.create(session)
             else:
                 print "Такое сообщение уже существует."
+
+    else:
+        print "Аккаунт %s отключен." % account_uuid
 
     account.last_check = datetime.now()
     session.commit()

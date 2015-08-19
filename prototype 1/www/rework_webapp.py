@@ -102,12 +102,9 @@ class SaveObject():
         try:        
             status = rwObjects.set_by_uuid(data['uuid'],data)
         except Exception as e:
-            print e[0]
-            print e[1]
+            print "Ошибка в rwObjects.set_by_uuid(data['uuid'],data) :",str(e)
             raise cherrypy.HTTPRedirect(url)
         else:
-        
-        
             print "\n SAVE."
             print status[0]
             print status[1]
@@ -699,6 +696,7 @@ class Any_object(object):
             return EditObject()
         elif len(vpath) == 2 and vpath[1] == 'save':
             print "Сохраняем объект : ",vpath
+            cherrypy.request.params['uuid'] = vpath[0]
             return SaveObject()
         elif len(vpath) == 2 and vpath[1] == 'addlink':
             cherrypy.request.params['uuid'] = vpath[0]
