@@ -44,6 +44,20 @@
                                      % endif
                                  % endfor
                                  </select>
+                             % elif key == 'access_groups' and 'admin' in session_context['groups']:
+                                 <select multiple class="form-control" name="groups">
+                                 % for d in obj.ACCESS_GROUPS.keys():
+                                     % if d in obj.__dict__[key]:
+                                        <option value="${d}" selected>${obj.ACCESS_GROUPS[d]}</option>
+                                     % else:
+                                        <option value="${d}">${obj.ACCESS_GROUPS[d]}</option>
+                                     % endif
+                                 % endfor
+                                 </select>
+                             % elif key == 'access_groups':
+                                 % for d in obj.__dict__[key]:
+                                        ${obj.ACCESS_GROUPS[d]}<br>
+                                 % endfor
                              % else:
                              <input type="text" value="${obj.__dict__[key]}" name=${key} />
                              % endif

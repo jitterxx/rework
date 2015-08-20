@@ -23,9 +23,9 @@
                      <td>Группа доступа</td>
                      <td>
                      <select multiple class="form-control" name="groups">
-                      <option value="admin">Администратор</option>
-                      <option value="users">Пользователь</option>
-                      <option value="expert">Эксперт Навигатора Знаний</option>
+                         % for key in access_groups.keys():
+                            <option value="${key}">${access_groups[key]}</option>
+                         % endfor
                     </select>
                      </td>
                     </tr>

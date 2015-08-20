@@ -36,6 +36,8 @@ def check_credentials(username, password):
         return u"Username %s is unknown to me." % username
     elif user.password != password:
         return u"Incorrect password"
+    elif user.disabled != 0:
+        return u"User disabled."
     else:
         return None
 
@@ -93,14 +95,16 @@ def require(*conditions):
 def member_of(groupname):
     def check():
         # replace with actual check if <username> is in <groupname>
-        admin_names = ['superuser@flw']
-        users_names = ['superuser@flw','ivan@flw']
+        user = rwObjects.get_employee_by_login(cherrypy.request.login)
+
+        #admin_names = ['superuser@flw']
+        #users_names = ['superuser@flw','ivan@flw']
 
         c = False
-        if groupname == 'admin' and cherrypy.request.login in admin_names:
+        if groupname in user.access_groups:
             c = True
-        if groupname == 'users' and cherrypy.request.login in users_names:
-            c = True
+        #if groupname == 'users' and cherrypy.request.login in users_names:
+        #    c = True
         return c
 
     return check
@@ -136,7 +140,7 @@ class AuthController(object):
     
     def on_login(self, username):
         """Called on successful login"""
-        #user = rwObjects.get_employee_by_login(username)
+        user = rwObjects.get_employee_by_login(username)
         
     
     def on_logout(self, username):

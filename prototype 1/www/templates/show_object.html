@@ -25,6 +25,10 @@
                             INBOX, SENT
                          % elif key == 'disabled':
                             ${obj.STATUS[obj.__dict__[key]]}
+                         % elif key == 'access_groups':
+                            % for group in obj.__dict__[key]:
+                                ${obj.ACCESS_GROUPS[group]}<br>
+                            % endfor
                          % else:
                             ${obj.__dict__[key]}
                          % endif

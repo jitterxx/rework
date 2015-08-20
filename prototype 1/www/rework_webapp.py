@@ -30,13 +30,8 @@ lookup = TemplateLookup(directories=["./templates"],output_encoding="utf-8",
                         input_encoding="utf-8",encoding_errors="replace")
 
 
-class ShowError():
-    def __init__(self,error):
-        pass
-
-    @cherrypy.expose
-    def index(self,error):
-        return str(error)
+def ShowError(error):
+    return str(error)
 
 
 class EditObject():
@@ -121,7 +116,7 @@ class SaveObject():
         try:        
             status = rwObjects.set_by_uuid(data['uuid'],data)
         except Exception as e:
-            print "Ошибка в rwObjects.set_by_uuid(data['uuid'],data) :",str(e)
+            print "SaveObject. Ошибка в rwObjects.set_by_uuid(data['uuid'],data) :",str(e)
             raise cherrypy.HTTPRedirect(url)
         else:
             print "\n SAVE."
@@ -351,16 +346,18 @@ class Employee(object):
         obj_keys = obj.get_attrs()
         f = obj.get_fields()
             
-        return tmpl.render(obj = obj,keys = obj_keys, name = obj.NAME,
-                           session_context = session_context,
-                           all_f = f[0],
-                           create_f = f[3])
+        return tmpl.render(obj=obj,keys=obj_keys, name=obj.NAME,
+                           session_context=session_context,
+                           all_f=f[0], create_f=f[3],
+                           access_groups=rwObjects.ACCESS_GROUPS)
 
     @cherrypy.expose
     def create_new(self,**kwargs):
         data = cherrypy.request.params
         session_context = cherrypy.session.get('session_context')
         url = session_context['back_ref']
+
+        print "Данные запроса: %s" % data
 
         params = dict()
         try:
@@ -372,18 +369,21 @@ class Employee(object):
             params['comp_id'] = session_context['comp_id']
             params['groups'] = data['groups']
         except KeyError as e:
-            return ShowError(str(e))
+            return ShowError("Функция Employee.create_new(). Ошибка KeyError: %s" % str(e))
         else:
             pass
 
-        for k in params.keys():
-            if params[k] == "" or not params[k]:
-                return ShowError("Параметр %s незаполнен." % k)
+        # Проверяем что этот параметр список, иначе делаем из одного значения список
+        if not isinstance(params['groups'], list):
+            params['groups'] = [params['groups']]
 
-        raise cherrypy.HTTPRedirect(url)
         """
         Проверка параметров тут.
         """
+        for k in params.keys():
+            if params[k] == "" or not params[k]:
+                print "Параметр %s незаполнен." % k
+                return ShowError("Параметр %s незаполнен." % k)
 
         source = rwObjects.get_by_uuid(session_context['uuid'])[0]
         print "Данные из запроса : "
@@ -398,9 +398,12 @@ class Employee(object):
         try:
             status, obj = rwObjects.create_new_object(session,"employees",params,source)
         except Exception as e:
-            print e
+            return ShowError("Ошибка создания объекта. " + str(e))
         else:
-            print status
+            pass
+
+        if not status[0]:
+            return ShowError(str(status[0]) + str(status[1]))
 
         """
         Если возвращен объект, проводим привязку согласно бизнес логики.
@@ -413,12 +416,12 @@ class Employee(object):
             """
             company = rwObjects.get_company_by_id(params['comp_id'])
             ref = rwObjects.Reference(source_uuid=company.uuid,
-                            source_type=company.__tablename__,
-                            source_id=company.id,
-                            target_uuid=obj.uuid,
-                            target_type=obj.__tablename__,
-                            target_id=obj.id,
-                            link=0)
+                                      source_type=company.__tablename__,
+                                      source_id=company.id,
+                                      target_uuid=obj.uuid,
+                                      target_type=obj.__tablename__,
+                                      target_id=obj.id,
+                                      link=0)
             ref.create(session)
 
         session.close()

@@ -269,6 +269,7 @@ class rw_parent():
     * ADD_FIELDS -- список, перечисляет поля которым можно присвоить значение через интерфейс при создании нового \
     объекта.
     * SHORT_VIEW_FIELDS -- список, перечисляет поля которые будут показаны через интерфейс при коротком выводе.
+    * ACCESS_GROUPS -- словарь групп доступа с названиями.
 
     """
 
@@ -278,6 +279,7 @@ class rw_parent():
     VIEW_FIELDS = ['uuid']
     ADD_FIELDS = []
     SHORT_VIEW_FIELDS = ['uuid']
+    ACCESS_GROUPS = {'admin': 'Администраторы', 'users': 'Пользователи', 'expert': 'Эксперт Навигатора Знаний'}
 
     def get_attrs(self):
         """
@@ -323,6 +325,103 @@ class rw_parent():
         :return: Всегда возвращает список -- [True,"OK"]
         """
         return [True, "OK"]
+
+
+class AccessRights(Base,rw_parent):
+    """
+    Хранит права доступа для пользователей системы.
+
+    На текущий момент права доступа жестко присвоены соответствующей группе. Поэтому в таблице храниться связь \
+    пользователя с группой.
+
+    """
+
+    __tablename__ = 'access_rights'
+    NAME = "Права доступа"
+
+    ALL_FIELDS = {'group': 'Группа', 'user_uuid': 'Пользователь', 'uuid': 'Идентификатор',
+                  'id': 'id'}
+    EDIT_FIELDS = ['group', 'user_uuid']
+    VIEW_FIELDS = ['group', 'user_uuid']
+    ADD_FIELDS = ['group', 'user_uuid']
+    SHORT_VIEW_FIELDS = ['group', 'user_uuid']
+
+    id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
+    uuid = sqlalchemy.Column(sqlalchemy.String(50))
+    group = sqlalchemy.Column(sqlalchemy.String(256))
+    user_uuid = sqlalchemy.Column(sqlalchemy.String(256))
+
+    def __init__(self):
+        self.uuid = uuid.uuid1()
+
+    def check(self,session):
+        """
+        Проверяем наличие записи о вхождении в группу для пользователя. Выполняется перед записью.
+        """
+
+        resp = session.query(AccessRights).filter(and_(AccessRights.group == self.group,\
+                                                       AccessRights.user_uuid == self.user_uuid)).count()
+        if resp == 0:
+            return True
+        else:
+            return False
+
+
+def create_access_rights_record(session,obj,groups):
+    """
+    Функция создания записей о вхождении объекта в группу.
+    """
+
+    if obj.__class__.__name__ != "Employee":
+        return [False,"Неверный тип объекта. Ожидался Employee, был получен %s" % obj.__class__]
+    for group in groups:
+        if group not in obj.ACCESS_GROUPS.keys():
+            return [False,"Неверно указана группа: %s. Все группы должны входить в ACCESS_GROUPS." % group]
+    try:
+        resp = session.query(AccessRights).filter(AccessRights.user_uuid == obj.uuid).all()
+    except Exception as e:
+        pass
+    else:
+        # Если в уже существующих записях есть группы которые не попадают в новый список, то удаляем их.
+        for r in resp:
+            if r.group not in groups:
+                session.delete(r)
+        session.commit()
+
+    for group in groups:
+        access = AccessRights()
+        access.group = group
+        access.user_uuid = obj.uuid
+        if access.check(session):
+            session.add(access)
+            try:
+                session.commit()
+            except Exception as e:
+                return [False,str(e)]
+            else:
+                print "Execution rwObjects.create_access_rights_record for %s : Successed." % obj.uuid
+        else:
+            print "Пользователь %s уже входит в группу %s" % (obj.uuid,group)
+
+    return [True, "OK"]
+
+
+def get_access_rights_record(session,obj):
+    """
+    Функция посика записей о вхождении объекта в группу.
+    """
+
+    access_records = list()
+
+    try:
+        resp = session.query(AccessRights.group).filter(AccessRights.user_uuid == obj.uuid).all()
+    except Exception as e:
+        print [False,"Функция def get_access_rights_record(session,obj). Ошибка доступа к БД. %s " % str(e)]
+    else:
+        for g in resp:
+            access_records.append(g[0])
+
+    return access_records
 
 
 class Company(Base, rw_parent):
@@ -440,12 +539,15 @@ class Employee(Base, rw_parent):
     EDIT_FIELDS = ['name', 'surname', 'password']
     ALL_FIELDS = {'name': 'Имя', 'surname': 'Фамилия',
                   'login': 'Логин', 'password': 'Пароль',
-                  'comp_id': 'Компания', 'id': 'id', 'uuid': 'uuid'}
-    VIEW_FIELDS = ['name', 'surname', 'login', 'password']
-    ADD_FIELDS = ['name', 'surname', 'login', 'password']
+                  'comp_id': 'Компания', 'id': 'id', 'uuid': 'uuid',
+                  'access_groups': 'Группы доступа'}
+    VIEW_FIELDS = ['name', 'surname', 'login', 'password', 'access_groups']
+    ADD_FIELDS = ['name', 'surname', 'login', 'password', 'access_groups']
     NAME = "Сотрудник"
 
     STATUS = {0: 'Используется', 1: 'Не используется'}
+
+    access_groups = list()
 
     __tablename__ = 'employees'
 
@@ -461,18 +563,20 @@ class Employee(Base, rw_parent):
 
     def __init__(self):
         self.uuid = uuid.uuid1()
+        self.access_groups = list()
 
-    def read(self,sesssion):
+    def read(self,session=None):
 
-        self.EDIT_FIELDS = ['name', 'surname', 'password','disabled']
+        self.EDIT_FIELDS = ['name', 'surname', 'password', 'access_groups', 'disabled']
         self.ALL_FIELDS = {'name': 'Имя', 'surname': 'Фамилия',
                            'login': 'Логин', 'password': 'Пароль',
                            'comp_id': 'Компания', 'id': 'id', 'uuid': 'uuid',
-                           'disabled':'Статус'}
-        self.VIEW_FIELDS = ['name', 'surname', 'login', 'password','disabled']
+                           'disabled':'Статус', 'access_groups': 'Группы доступа'}
+        self.VIEW_FIELDS = ['name', 'surname', 'login', 'password', 'access_groups', 'disabled']
         self.SHORT_VIEW_FIELDS = ['name', 'surname']
-        self.ADD_FIELDS = ['name', 'surname', 'login', 'password']
+        self.ADD_FIELDS = ['name', 'surname', 'login', 'password', 'access_groups']
         self.NAME = "Сотрудник"
+        self.access_groups = get_access_rights_record(session,self)
 
 
     def check(self):
@@ -1647,15 +1751,29 @@ def set_by_uuid(uuid, data):
 
     print obj_class
     print obj
+    print obj.__class__.__name__
 
     keys = data.keys()
+    print keys
 
     """
     Если во время сохранения надо заменить или раскрытьполя объекта, это делается тут.
     """
-    if obj.__tablename__ == 'accounts':
-        if 'dirs' in data.keys():
+    if obj.__class__.__name__ == 'Account':
+        if 'dirs' in keys:
             data['dirs'] = obj.DIRS[data['dirs']]
+
+    if obj.__class__.__name__ == 'Employee':
+        if 'groups' in keys:
+            if not isinstance(data['groups'], list):
+                data['groups'] = [data['groups']]
+            create_access_rights_record(session, obj, data['groups'])
+            try:
+                data.pop('groups')
+            except KeyError:
+                s = s + "\n нет ключа."
+            else:
+                s = s + "\n Ключ ID удален."
 
     s = s + "\n set_by_uuid KEYS: " + str(keys)
 
@@ -1741,6 +1859,9 @@ def create_new_object(session, object_type, params, source):
         new_obj.password = params['password']
         new_obj.surname = params['surname']
         new_obj.comp_id = params['comp_id']
+        if not isinstance(params['groups'], list):
+            params['groups'] = [params['groups']]
+
     elif object_type == "accounts":
         new_obj = Account()
         params['dirs'] = new_obj.DIRS[params['dirs']]
@@ -1786,6 +1907,9 @@ def create_new_object(session, object_type, params, source):
                         target_id=new_obj.id,
                         link=1)
         status = ref.create(session)
+        # Создание прав доступа для нового объекта
+        create_access_rights_record(session, new_obj, params['groups'])
+
     finally:
         if session_flag:
             session.close()

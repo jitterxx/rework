@@ -82,7 +82,7 @@ session = rwObjects.Session()
 ## t = rwObjects.get_by_uuid('ed38261a-41cb-11e5-aae5-f46d04d35cbd')[0].targets
 #print t
 
-rwLearn.autoclassify_all_notlinked_objects()
+#rwLearn.autoclassify_all_notlinked_objects()
 
 #s = rwLearn.retrain_classifier(session,'ed38261a-41cb-11e5-aae5-f46d04d35cbd')
 #print s[0]
@@ -100,5 +100,10 @@ rwLearn.autoclassify_all_notlinked_objects()
 #print len(fl)
 
 #print obj.__dict__['text_clear']
+
+obj = rwObjects.get_by_uuid('cba638b4-45b0-11e5-a896-f46d04d35cbd')[0]
+print rwObjects.create_access_rights_record(session,obj,['admin'])
+print rwObjects.get_access_rights_record(session, obj)
+
 
 session.close()
