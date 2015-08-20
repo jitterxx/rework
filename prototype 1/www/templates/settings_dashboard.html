@@ -13,13 +13,19 @@
 
         % if 'admin' in session_context['groups']:
           <li><a href="/settings?menu=employee">Сотрудники и аккаунты<span class="sr-only">(current)</span></a></li>
-          <li><a href="/object/${session_context['company_uuid']}">Компания</a></li>
-
-          <li><a href="/settings?menu=clients">Клиенты</a></li>
-          <li><a href="/settings?menu=ktree">Навигатор Знаний</a></li>
         % else:
           <li><a href="/settings?menu=accounts">Аккаунты<span class="sr-only">(current)</span></a></li>
         % endif
+
+        % if 'admin' in session_context['groups']:
+          <li><a href="/object/${session_context['company_uuid']}">Компания</a></li>
+          <li><a href="/settings?menu=clients">Клиенты</a></li>
+        % endif
+
+        % if 'admin' in session_context['groups'] or 'expert' in session_context['groups']:
+          <li><a href="/settings?menu=ktree">Навигатор Знаний</a></li>
+        % endif
+
 
       </ul>
 

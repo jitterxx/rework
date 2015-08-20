@@ -7,7 +7,12 @@
 </%block>
 
     <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
-        <h1 class="page-header"> События ${session_context["company"]}</h1>
+        <ul class="nav nav-pills">
+            <li role="presentation" class="${view_type[0]}"><a href="/timeline">Все</a></li>
+            <li role="presentation" class="${view_type[1]}"><a href="/timeline/create">Создание</a></li>
+            <li role="presentation" class="${view_type[2]}"><a href="/timeline/links">Связи</a></li>
+        </ul>
+        <h2 class="page-header"></h2>
         <div class="table-responsive">
             <table class="table table-condensed">
               <thead>
@@ -27,6 +32,7 @@
                                 <a href="/object/${event.__dict__[key]}" class="list-group-item">
                                     <h4 class="list-group-item-heading">
                                         ${actors[event.__dict__[key]].NAME}
+
                                     </h4>
 
                                         <dl class="dl-horizontal list-group-item-text">

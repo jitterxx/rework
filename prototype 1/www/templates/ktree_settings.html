@@ -7,21 +7,26 @@
 </%block>
 
     <div class="col-sm-9 col-sm-offset-3 col-md-4 col-md-offset-2 main">
+        % if 'admin' in session_context['groups']:
         <p>
             <a class="btn btn-default" href="/ktree/classify">Обучить классификатор</a>
             <a class="btn btn-default" href="/autoclassify_all_notlinked_objects">Обновить автоклассификацию</a>
         </p>
         <h2 class="sub-header"></h2>
+        % endif
+
                         <%def name="template_return_childs(session,parent)">
                         <%
                             string = "<li class='list-group-item'>"
                             childs = obj.ktree_return_childs(session,parent)
                             count = childs[0].get_category_objects_count(session)
                             if len(childs) != 1:
-                                string += "<a href='/ktree/%s'>%s "%(str(childs[0].uuid),childs[0].name)
-                                string += "<span class='badge text-left'>%s</span></a>"%count
-                                string += " <a href='/ktree/add?parent_id=%s&name=%s'>"%(childs[0].id,childs[0].name)
-                                string += "<span class='glyphicon glyphicon-plus'></span></a>"
+                                string += childs[0].name
+                                if childs[0].expert == session_context['login'] or 'admin' in session_context['groups']:
+                                    string += " <a href='/ktree/edit?uuid=%s'>"%childs[0].uuid
+                                    string += "<span class='glyphicon glyphicon-edit'></span></a>"
+                                    string += " <a href='/ktree/add?parent_id=%s&name=%s'>"%(childs[0].id,childs[0].name)
+                                    string += "<span class='glyphicon glyphicon-plus'></span></a>"
                                 string += "</li><ul>"
                                 for child in childs[1:]:
                                     s = template_return_childs(session,child.id)
@@ -29,10 +34,12 @@
                                 string = string + "</ul>"
                             elif len(childs) == 1:
                                 count = childs[0].get_category_objects_count(session)
-                                string += "<a href='/ktree/%s'>%s  "%(str(childs[0].uuid),childs[0].name)
-                                string += "<span class='badge'>%s</span></a>"%count
-                                string += " <a href='/ktree/add?parent_id=%s&name=%s'>"%(childs[0].id,childs[0].name)
-                                string += "<span class='glyphicon glyphicon-plus'></span></a>"
+                                string += childs[0].name
+                                if childs[0].expert == session_context['login'] or 'admin' in session_context['groups']:
+                                    string += " <a href='/ktree/edit?uuid=%s'>"%childs[0].uuid
+                                    string += "<span class='glyphicon glyphicon-edit'></span></a>"
+                                    string += " <a href='/ktree/add?parent_id=%s&name=%s'>"%(childs[0].id,childs[0].name)
+                                    string += "<span class='glyphicon glyphicon-plus'></span></a>"
                                 string += "</li>"
                                 return string
                             else:
@@ -47,4 +54,5 @@
           ${template_return_childs(session,root)}
         </ul>
     </div>
+
 

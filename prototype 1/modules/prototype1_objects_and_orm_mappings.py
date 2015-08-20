@@ -424,6 +424,30 @@ def get_access_rights_record(session,obj):
     return access_records
 
 
+def get_userlist_in_group(session,group):
+    """
+    Возвращает список объектов класса Employee входящих в указанную группу.
+
+    :param session: сессия ORM
+    :param group: название группы
+    :return: Tuple состоящий из: статуса -- список из двух элементов: True/False и описание; Набора объектов -- \
+    список объектов класса Employee входящих в запрошенную группу
+    """
+
+    userlist = list()
+
+    try:
+        resp = session.query(AccessRights).filter(AccessRights.group == group).all()
+    except Exception as e:
+        [False,"Функция get_userlist_in_group(session,group). Ошибка: "+str(e)],userlist
+    else:
+        for u in resp:
+            user = get_by_uuid(u.user_uuid)[0]
+            print user
+            userlist.append(user)
+
+    return [True,"OK"],userlist
+
 class Company(Base, rw_parent):
     """
     Класс объектов для хранения данных о Компании.
@@ -1447,9 +1471,9 @@ class KnowledgeTree(Base, rw_parent):
     childs = []
     parent = []
 
-    NAME = "Знания"
+    NAME = "Раздел Навигатора Знаний"
     EDIT_FIELDS = ['name', 'description', 'tags', 'expert']
-    ALL_FIELDS = {'name': 'Название', 'description': 'Описание',
+    ALL_FIELDS = {'name': 'Название раздела', 'description': 'Описание',
                   'tags': 'Теги', 'expert': 'Ответственный',
                   'id': 'id', 'uuid': 'Идентификатор',
                   'parent_id': 'Родительский раздел', 'tags_clf': 'tags_clf',
@@ -1473,13 +1497,13 @@ class KnowledgeTree(Base, rw_parent):
 
     def read(self, session):
         self.NAME = "Тема Навигатора Знаний"
-        self.EDIT_FIELDS = ['name', 'description', 'tags', 'expert']
+        self.EDIT_FIELDS = ['parent_id', 'name', 'description', 'tags', 'expert']
         self.ALL_FIELDS = {'name': 'Название', 'description': 'Описание',
-                           'tags': 'Теги', 'expert': 'Ответственный',
+                           'tags': 'Теги', 'expert': 'Ответственный эксперт',
                            'id': 'id', 'uuid': 'Идентификатор',
                            'parent_id': 'Родительский раздел', 'tags_clf': 'tags_clf',
                            'objects_class': 'Автоматически привязываются', 'type': 'Тип узла'}
-        self.VIEW_FIELDS = ['name', 'description', 'tags', 'expert']
+        self.VIEW_FIELDS = ['parent_id', 'name', 'description', 'tags', 'expert']
         self.SHORT_VIEW_FIELDS = ['name', 'description', 'expert']
         self.ADD_FIELDS = ['type', 'parent_id', 'name', 'description', 'tags', 'expert', 'objects_class']
 
@@ -1577,6 +1601,25 @@ class KnowledgeTree(Base, rw_parent):
             # ("Родительский узел не найден."+str(e))
         else:
             return query.id
+
+    def get_all(self,session):
+        """
+        Возвращает все узлы Навигатора Знаний за исключением самого себя.
+
+        :parameter session: сессия ORM
+
+        :return: список всех узлов Навигатора Знаний за исключением самого себя.
+        """
+
+        try:
+            query = session.query(KnowledgeTree). \
+                filter(KnowledgeTree.uuid != self.uuid).all()
+        except Exception as e:
+            raise e
+        else:
+            pass
+
+        return query
 
 
 def get_ktree_custom(session):
@@ -1859,8 +1902,12 @@ def create_new_object(session, object_type, params, source):
         new_obj.password = params['password']
         new_obj.surname = params['surname']
         new_obj.comp_id = params['comp_id']
+
         if not isinstance(params['groups'], list):
             params['groups'] = [params['groups']]
+
+        """Создание прав доступа для нового объекта"""
+        create_access_rights_record(session, new_obj, params['groups'])
 
     elif object_type == "accounts":
         new_obj = Account()
@@ -1876,6 +1923,7 @@ def create_new_object(session, object_type, params, source):
         for f in new_obj.ADD_FIELDS:
             if f in params.keys() and params[f] != "":
                 new_obj.__dict__[f] = params[f]
+
     elif object_type == "classifiers":
         CL = Classifier()
         st, new_obj = rwLearn.init_classifier(session, CL, 'svc')
@@ -1907,9 +1955,6 @@ def create_new_object(session, object_type, params, source):
                         target_id=new_obj.id,
                         link=1)
         status = ref.create(session)
-        # Создание прав доступа для нового объекта
-        create_access_rights_record(session, new_obj, params['groups'])
-
     finally:
         if session_flag:
             session.close()

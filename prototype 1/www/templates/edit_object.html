@@ -33,7 +33,7 @@
                                  </select>
                              % elif key == 'disabled' and obj.uuid == session_context['uuid']:
                                 ${obj.STATUS[obj.__dict__[key]]}
-                                <span class="label label-warning">Вы не можете изменить статус своего пользователя.</span>
+                                <span class="label label-info">Вы не можете изменить статус своего пользователя.</span>
                              % elif key == 'disabled':
                                  <select class="form-control" name="disabled">
                                  % for d in obj.STATUS.keys():

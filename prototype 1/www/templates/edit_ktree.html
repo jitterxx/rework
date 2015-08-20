@@ -1,0 +1,63 @@
+<%inherit file="page_structure.html"/>
+
+<%block name="title">
+    <title>Редактирование ${obj.NAME} - ${obj.name}</title>
+    <link href="/static/css/dashboard.css" rel="stylesheet">
+
+</%block>
+
+    <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
+        <h3 class="sub-header">${obj.NAME} - ${obj.name}</h3>
+        <div class="table-responsive">
+            <table class="table table-striped">
+              <tbody>
+                <form method="post" action="/ktree/save">
+                    <input type="hidden" value="${obj.__dict__['uuid']}" name="uuid"/>
+                % for key in all_f:
+                    % if key in edit_f:
+                         <tr>
+                         <td> ${all_f[key]}</td>
+                         <td>
+                         %if key == 'parent_id' and 'admin' in session_context['groups']:
+                             <select class="form-control" name="parent_id">
+                             % for d in all:
+                                 % if str(d.id) == obj.parent_id:
+                                    <option selected value="${d.id}">${d.name}</option>
+                                 % else:
+                                    <option value="${d.id}">${d.name}</option>
+                                 % endif
+                             % endfor
+                             </select>
+                         % elif key == 'expert' and 'admin' in session_context['groups']:
+                             <select class="form-control" name="expert">
+                             % for d in experts:
+                                 % if d.login == obj.expert:
+                                    <option selected value="${d.login}">${d.name} ${d.surname}</option>
+                                 % else:
+                                    <option value="${d.login}">${d.name} ${d.surname}</option>
+                                 % endif
+                             % endfor
+                             </select>
+                         % elif key in ['expert','parent_id']:
+                             ${obj.__dict__[key]}<input type="hidden" value="${obj.__dict__[key]}" name="${key}"/>
+                         % elif key == 'name' and obj.type == 'system':
+                             ${obj.__dict__[key]}  <span class="label label-info">Системный раздел</span>
+                             <input type="hidden" value="${obj.__dict__[key]}" name="${key}"/>
+                         % else:
+                         <input type="text" value="${obj.__dict__[key]}" name=${key} />
+                         % endif
+
+                         </td>
+                        </tr>
+                    % endif
+                % endfor
+                	 <tr>
+                	 <td><a class="btn btn-primary" role="button" href="${session_context["back_ref"]}">Назад</a></td>
+                	 <td><button class="btn btn-success" type="submit">Записать</button></td>
+                    </tr>
+                </form> 
+              </tbody>
+            </table>
+        </div>
+
+    </div>

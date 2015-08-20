@@ -55,7 +55,7 @@ class EditObject():
 
             print "session_context['menu'] : %s " % session_context['menu']
 
-            if session_context['menu'] in ['accounts','employee']:
+            if session_context['menu'] in ['accounts','employee','ktree']:
                 session_context['back_ref'] = "/settings/?menu=" + session_context['menu']
             if session_context['menu'] == 'settings':
                 session_context['back_ref'] = "/settings"
@@ -477,27 +477,42 @@ class Timeline(object):
         """
         Обаработка REST URL
         """
-        
-        if len(vpath) == 1:
-            cherrypy.request.params['uuid'] = vpath[0]
-            return ShowObject()
-        elif len(vpath) == 2 and vpath[1] == 'edit':
-            cherrypy.request.params['uuid'] = vpath[0]            
-            return EditObject()
-        elif len(vpath) == 0:
+
+        if len(vpath) == 1 and vpath[0] == 'create':
+            cherrypy.request.params['view_type'] = vpath[0]
             return self
-            
+        elif len(vpath) == 1 and vpath[0] == 'links':
+            cherrypy.request.params['view_type'] = vpath[0]
+            return self
+        elif len(vpath) == 0:
+            cherrypy.request.params['view_type'] = 'all'
+            return self
         return vpath
 
     @cherrypy.expose
-    def index(self):
+    def index(self,view_type=None,date=None):
+
+        print "Тип отображения: %s" % view_type
+        print "Дата %s" % date
+        v = ["","",""]
+
+        if view_type == "links":
+            link = 0
+            v[2]= "active"
+        elif view_type == "create":
+            link = 1
+            v[1]= "active"
+        else:
+            link = 1
+            v[0]= "active"
+
         tmpl = lookup.get_template("timeline.html")
         session_context = cherrypy.session.get('session_context')
         session_context['back_ref'] = '/timeline'
         session_context['menu'] = 'timeline'
         cherrypy.session['session_context'] = session_context
         session = rwObjects.Session()
-        events = session.query(rwObjects.Reference).filter(rwObjects.Reference.link == 1).\
+        events = session.query(rwObjects.Reference).filter(rwObjects.Reference.link == link).\
                     order_by(rwObjects.desc(rwObjects.Reference.timestamp)).all()
         obj_keys = events[0].get_attrs()
         fields = events[0].get_fields()
@@ -532,11 +547,10 @@ class Timeline(object):
         #print "events[0].get_fields() : %s" % fields
         #print "obj_keys : %s " % obj_keys
 
-        return tmpl.render(obj = events,keys = obj_keys,
-                           session_context = session_context,
-                           all_f = fields[0],
-                           view_f = fields[1],
-                           actors = actors)
+        return tmpl.render(obj=events,keys=obj_keys,
+                           session_context=session_context,
+                           all_f=fields[0],view_f=fields[1],
+                           actors=actors, view_type=v)
 
 
 class KTree(object):
@@ -593,6 +607,63 @@ class KTree(object):
                            session_context = session_context,
                            all_f = f[0],
                            create_f = f[3])
+
+    @cherrypy.expose
+    def edit(self,uuid):
+        print uuid
+        tmpl = lookup.get_template("edit_ktree.html")
+        session_context = cherrypy.session.get('session_context')
+        session = rwObjects.Session()
+        obj = rwObjects.get_by_uuid(uuid)[0]
+        f = obj.get_fields()
+        experts = rwObjects.get_userlist_in_group(session,'expert')
+        all_leafs = obj.get_all(session)
+
+        #print "OBJ : %s" % obj
+        #print "Status experts : %s" % experts[0]
+        #print "Experts : %s" % experts[1]
+        #print "All leafs : %s" % all_leafs
+        session.close()
+        return tmpl.render(obj = obj, experts=experts[1], all=all_leafs,
+                           session_context = session_context,
+                           all_f=f[0], edit_f=f[2])
+
+    @cherrypy.expose
+    def save(self,**kwargs):
+        data = cherrypy.request.params
+        session_context = cherrypy.session.get('session_context')
+        url = "/settings?menu=ktree"
+
+        print "Данные из запроса : %s" % data
+        print "\nКонтекст :" % session_context
+
+        params = dict()
+
+        try:
+            params['parent_id'] = data['parent_id']
+            params['name'] = data['name']
+            params['description'] = data['description']
+            params['tags'] = data['tags']
+            params['expert'] = data['expert']
+        except Exception as e:
+            raise e
+        else:
+            pass
+
+        """
+        Проверка параметров тут.
+        """
+        session = rwObjects.Session()
+        try:
+            st = rwObjects.set_by_uuid(data['uuid'],data)
+        except Exception as e:
+            return ShowError("Функция Ktree.save операция rwObjects.set_by_uuid(data['uuid'],data)"+str(e))
+        else:
+            print st[0]
+            print st[1]
+
+        session.close()
+        raise cherrypy.HTTPRedirect(url)
 
     @cherrypy.expose
     def create_new(self,**kwargs):
@@ -905,7 +976,7 @@ class Root(object):
             tmpl = lookup.get_template("ktree_settings.html")
             session = rwObjects.Session()
             tree = rwObjects.KnowledgeTree()
-            session_context['back_ref'] = '/settings'
+            session_context['back_ref'] = '/settings?menu=ktree'
             session_context['menu'] = "ktree_settings"
             return tmpl.render(obj=tree, session=session,
                                session_context=session_context)
@@ -950,10 +1021,7 @@ def get_session_context(login):
     context['back_ref'] = "/"
     context['menu'] = "main"
     context['username'] = context['login'].split("@",1)[0]
-
-    for group in ['admin','users']:
-        if member_of(group)():
-            context['groups'].append(group)
+    context['groups'] = user.access_groups
 
     cherrypy.session['session_context'] = context
 
