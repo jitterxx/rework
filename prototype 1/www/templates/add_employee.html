@@ -14,10 +14,6 @@
               <tbody>
                 <form method="post" action="create_new">
                 % for key in create_f:
-                    <tr>
-                     <td> ${all_f[key]}</td>
-                     <td> <input type="text" value="" name=${key} /></td>
-                    </tr>
                     % if key == 'access_groups':
                     <tr>
                      <td>Группа доступа</td>
@@ -28,6 +24,11 @@
                          % endfor
                     </select>
                      </td>
+                    </tr>
+                    % else:
+                     <tr>
+                     <td> ${all_f[key]}</td>
+                     <td> <input type="text" value="" name=${key} /></td>
                     </tr>
                     % endif
                 % endfor
