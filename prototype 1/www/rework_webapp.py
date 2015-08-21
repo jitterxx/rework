@@ -800,7 +800,7 @@ class KTree(object):
 
         if rwLearn.check_conditions_for_classify()[0]:
             session = rwObjects.Session()
-            status = rwLearn.retrain_classifier(session, 'ed38261a-41cb-11e5-aae5-f46d04d35cbd')
+            status = rwLearn.retrain_classifier(session, rwObjects.default_classifier)
             print status[0]
             print status[1]
 

@@ -23,7 +23,7 @@ import prototype1_type_classifiers as rwLearn
 import pymongo
 import re
 import operator
-from configurations import LEARN_PATH, mongo_uri, sql_uri
+from configurations import LEARN_PATH, mongo_uri, sql_uri, default_classifier
 
 import sys
 
@@ -250,6 +250,8 @@ def create_company():
         raise (e)
     else:
         print status
+        print "\nЗапишите UUID классификатора в файл modules/configurations.py"
+        print "\n %s \n" % str(clf.uuid)
 
     session.close()
 

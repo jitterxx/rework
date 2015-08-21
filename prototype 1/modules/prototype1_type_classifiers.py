@@ -303,9 +303,11 @@ def init_classifier(session,clf_obj,clf_type):
 
     try:
         joblib.dump(clf, clf_obj.clf_path, compress=9)
+        session.add(clf_obj)
+        session.commit()
     except RuntimeError as e:
         status[0] = False
-        status[1] = "Ошибка сохранения классификатора в файл "+str(clf_obj.clf_path)
+        status[1] = "Ошибка сохранения классификатора в файл " + str(clf_obj.clf_path)
         status[1] += str(e)
         clf_obj = None
 
@@ -605,7 +607,7 @@ def retrain_classifier(session,clf_uuid):
     print "Key len :",len(keys)
     print "Targets len :",len(targets)
 
-    fit_classifier('ed38261a-41cb-11e5-aae5-f46d04d35cbd', dataset, targets)
+    fit_classifier(rwObjects.default_classifier, dataset, targets)
 
     return [True,""]
 
@@ -670,10 +672,10 @@ def autoclassify_all_notlinked_objects():
         if not obj.__dict__['custom_category'] and obj.obj_type in rwObjects.FOR_CLASSIFY:
             print "-------- Классифицируем объект : %s ---------" % obj.uuid
             obj = rwObjects.get_by_uuid(obj.uuid)[0]
-            clf_uuid = "ed38261a-41cb-11e5-aae5-f46d04d35cbd"
+
             obj.clear_text()
             #print str(obj.text_plain)
-            probe,Z = predict(clf_uuid,[obj.text_plain])
+            probe,Z = predict(rwObjects.default_classifier, [obj.text_plain])
             print 'Вероятности : %s' % probe
             categories = rwObjects.get_ktree_custom(session)
             print 'Категория : %s' % categories[Z[0]].name
