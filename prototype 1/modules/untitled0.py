@@ -17,6 +17,12 @@ import base64
 import pymongo
 import networkx as nx
 import matplotlib.pyplot as plt
+from matplotlib import rc
+rc('font',**{'family':'serif'})
+rc('text', usetex=True)
+rc('text.latex',unicode=True)
+rc('text.latex',preamble='\usepackage[utf8]{inputenc}')
+rc('text.latex',preamble='\usepackage[russian]{babel}')
 import re
 
 reload(sys)
@@ -100,10 +106,28 @@ session = rwObjects.Session()
 #print len(fl)
 
 #print obj.__dict__['text_clear']
+link = 0
 
-obj = rwObjects.get_by_uuid('cba638b4-45b0-11e5-a896-f46d04d35cbd')[0]
-print rwObjects.create_access_rights_record(session,obj,['admin'])
-print rwObjects.get_access_rights_record(session, obj)
+response = session.query(rwObjects.Reference).filter(rwObjects.Reference.link == int(link)).all()
+
+G = nx.Graph()
+labels = {}
+for line in response:
+    G.add_node(str(line.source_uuid),obj = line.source_type)
+    G.add_node(str(line.target_uuid),obj = line.target_type)
+    G.add_edge(str(line.source_uuid),str(line.target_uuid), comment = link)
+
+for node in G.nodes():
+    obj = rwObjects.get_by_uuid(node)[0]
+    labels[node]=obj.NAME
+
+pos = nx.spring_layout(G)
+plt.figure(1,figsize=(10,10))
+nx.draw_networkx_nodes(G,pos)
+nx.draw_networkx_labels(G,pos,labels=labels, font_size=7)
+nx.draw_networkx_edges(G,pos)
+plt.show()
+plt.close()
 
 
 session.close()
