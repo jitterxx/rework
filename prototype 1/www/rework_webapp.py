@@ -806,7 +806,7 @@ class KTree(object):
             print status[1]
             session.close()
         else:
-            ShowError(s[1])
+            return ShowError(s[1])
 
         session_context = cherrypy.session.get('session_context')
 
