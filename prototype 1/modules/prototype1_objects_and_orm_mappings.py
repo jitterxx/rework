@@ -197,6 +197,7 @@ def create_company():
         print "Ошибка создания пользователя."
     else:
         print "Пользователь \"" + str(superuser.login) + "\" внесен в базу."
+        create_access_rights_record(session,superuser,['admin'])
 
     # Записываем событие создания Компании
     ref = Reference(source_uuid=new_company.uuid,
@@ -244,7 +245,7 @@ def create_company():
 
     print "Создаем базовый классификатор для кастомных разделов Дерева Знаний."
     try:
-        status, clf = rwLearn.init_classifier(session, 'svc')
+        status, clf = rwLearn.init_classifier(session, Classifier(), 'svc')
     except Exception as e:
         raise (e)
     else:
