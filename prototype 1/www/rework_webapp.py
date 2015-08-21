@@ -960,7 +960,7 @@ class AccessGraph(object):
     def neighbors(self,uuid=None):
 
         if uuid:
-            return self.graph.neighbors(uuid)
+            return self.graph.neighbors(uuid)+[uuid]
         else:
             return None
 
@@ -1103,6 +1103,11 @@ class Root(object):
             session_context['menu'] = "settings"
             params = cherrypy.request.headers
             return tmpl.render(params=params, session_context=session_context)
+
+    @cherrypy.expose
+    @require(member_of("users"))
+    def help(self, menu=None):
+        raise cherrypy.HTTPRedirect("/")
 
     @cherrypy.expose
     def open(self):
