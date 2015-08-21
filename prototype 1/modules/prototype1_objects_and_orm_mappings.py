@@ -23,6 +23,7 @@ import prototype1_type_classifiers as rwLearn
 import pymongo
 import re
 import operator
+from configurations import LEARN_PATH, mongo_uri, sql_uri
 
 import sys
 
@@ -45,9 +46,9 @@ rwChannel_type = ["email", "facebook", "phone", "vk"]
 
 """
 
-LEARN_PATH = "learn_machine/"
-mongo_uri = 'mongodb://localhost/rsa'
-sql_uri = 'mysql://rework:HtdjhR123@localhost/rework?charset=utf8'
+#LEARN_PATH = "learn_machine/"
+#mongo_uri = 'mongodb://localhost/rsa'
+#sql_uri = 'mysql://rework:HtdjhR123@localhost/rework?charset=utf8'
 
 STANDARD_OBJECTS_TYPES = ['accounts', 'employees', 'messages']
 
@@ -190,13 +191,13 @@ def create_company():
         raise Exception(s[1])
     else:
         session.add(superuser)
-
     try:
         session.commit()
     except RuntimeError:
         print "Ошибка создания пользователя."
     else:
         print "Пользователь \"" + str(superuser.login) + "\" внесен в базу."
+        create_access_rights_record(session,superuser,['admin'])
 
     # Записываем событие создания Компании
     ref = Reference(source_uuid=new_company.uuid,
@@ -244,7 +245,7 @@ def create_company():
 
     print "Создаем базовый классификатор для кастомных разделов Дерева Знаний."
     try:
-        status, clf = rwLearn.init_classifier(session, 'svc')
+        status, clf = rwLearn.init_classifier(session, Classifier(), 'svc')
     except Exception as e:
         raise (e)
     else:

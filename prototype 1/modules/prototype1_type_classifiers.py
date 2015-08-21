@@ -277,8 +277,10 @@ def extract_addresses(field):
 def init_classifier(session,clf_obj,clf_type):
     """
     Инициализация классификатора.
-    :param clf_type: -- тип классификатора dtree или svc.
-    :param session: -- ORM сессия rwObjects.Session()
+    :param clf_type: тип классификатора dtree или svc.
+    :param session: ORM сессия rwObjects.Session()
+    :param clf_obj: объект класса Classifier
+
     :return status -- статус операции
     :return CL -- объект класса rwObjects.Classifier()
     """
