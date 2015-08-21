@@ -197,7 +197,7 @@ def create_company():
         print "Ошибка создания пользователя."
     else:
         print "Пользователь \"" + str(superuser.login) + "\" внесен в базу."
-        create_access_rights_record(session,superuser,['admin'])
+        create_access_rights_record(session, superuser, ['admin','users'])
 
     # Записываем событие создания Компании
     ref = Reference(source_uuid=new_company.uuid,
