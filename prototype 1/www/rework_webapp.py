@@ -349,11 +349,12 @@ class Employee(object):
             filter_by(uuid=session_context['uuid']).one()
         obj_keys = obj.get_attrs()
         f = obj.get_fields()
+        empl = rwObjects.Employee()
 
         return tmpl.render(obj=obj, keys=obj_keys, name=obj.NAME,
                            session_context=session_context,
                            all_f=f[0], create_f=f[3],
-                           access_groups=rwObjects.ACCESS_GROUPS)
+                           access_groups=empl.ACCESS_GROUPS)
 
     @cherrypy.expose
     def create_new(self, **kwargs):
