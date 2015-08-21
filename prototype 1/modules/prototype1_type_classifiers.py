@@ -525,7 +525,7 @@ def check_conditions_for_classify():
     else:
         pass
     if count < 2:
-        return [False,"Мало разделов в ДЗ."]
+        return [False,"Мало разделов в ДЗ. У вас %S, надо больше 2 или больше." % count]
 
     # Проверка количества объектов из FOR_CLASSIFY. Должно быть >= количеству разделов.
     try:
@@ -537,7 +537,7 @@ def check_conditions_for_classify():
         pass
 
     if obj_count < count:
-        return [False,"Мало объектов для связи с ДЗ."]
+        return [False,"Мало объектов для связи с ДЗ. У вас %S, надо больше %s." % (obj_count, count)]
 
     session.close()
     return [True,"OK"]

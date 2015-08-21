@@ -798,13 +798,16 @@ class KTree(object):
     @cherrypy.expose
     def classify(self):
 
-        if rwLearn.check_conditions_for_classify()[0]:
+        s = rwLearn.check_conditions_for_classify()
+        if s[0]:
             session = rwObjects.Session()
             status = rwLearn.retrain_classifier(session, rwObjects.default_classifier)
             print status[0]
             print status[1]
+            session.close()
+        else:
+            ShowError(s[1])
 
-        session.close()
         raise cherrypy.HTTPRedirect("/ktree")
 
 
