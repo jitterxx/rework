@@ -999,7 +999,12 @@ class Root(object):
     @require(member_of("admin"))
     def autoclassify_all_notlinked_objects(self):
 
-        rwLearn.autoclassify_all_notlinked_objects()
+        try:
+            rwLearn.autoclassify_all_notlinked_objects()
+        except Exception as e:
+            return ShowError("Обновить автоклассификацию нельзя. " + str(e))
+        else:
+            pass
 
         raise cherrypy.HTTPRedirect("/settings?menu=ktree")
 

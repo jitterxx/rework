@@ -402,13 +402,20 @@ def predict(clf_uuid,dataset):
     try:
         CL = session.query(rwObjects.Classifier).\
                 filter(rwObjects.Classifier.uuid == clf_uuid).one()
-    except rwObjects.sqlalchemy.orm.exc.NoResultFound:
+    except rwObjects.sqlalchemy.orm.exc.NoResultFound as e:
         print "Классификатор не найден. "
-        print sys.exc_info()
+        raise e
     else:
         print "Классификатор загружен."        
+
+    try:
         clf = joblib.load(CL.clf_path)
         #print clf.get_params
+    except Exception as e:
+        print "Ошибка чтения файла векторизатора %s" % CL.clf_path
+        raise e
+    else:
+        pass
 
     v = joblib.load(CL.vec_path)
     
@@ -675,7 +682,12 @@ def autoclassify_all_notlinked_objects():
 
             obj.clear_text()
             #print str(obj.text_plain)
-            probe,Z = predict(rwObjects.default_classifier, [obj.text_plain])
+            try:
+                probe, Z = predict(rwObjects.default_classifier, [obj.text_plain])
+            except Exception as e:
+                raise e
+            else:
+                pass
             print 'Вероятности : %s' % probe
             categories = rwObjects.get_ktree_custom(session)
             print 'Категория : %s' % categories[Z[0]].name
