@@ -808,7 +808,9 @@ class KTree(object):
         else:
             ShowError(s[1])
 
-        raise cherrypy.HTTPRedirect("/ktree")
+        session_context = cherrypy.session.get('session_context')
+
+        raise cherrypy.HTTPRedirect(session_context['back_ref'])
 
 
 class ShowKTreeCategory(object):
