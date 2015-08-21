@@ -18,7 +18,7 @@
                      <td> ${all_f[key]}</td>
                      <td> <input type="text" value="" name=${key} /></td>
                     </tr>
-                % endfor
+                    % if key == 'access_groups':
                     <tr>
                      <td>Группа доступа</td>
                      <td>
@@ -29,6 +29,8 @@
                     </select>
                      </td>
                     </tr>
+                    % endif
+                % endfor
                 	 <tr>
                 	 <td><a class="btn btn-primary" role="button" href="${session_context["back_ref"]}">Назад</a></td>
                 	 <td><button class="btn btn-success" type="submit">Создать</button></td>

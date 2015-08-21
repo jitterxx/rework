@@ -574,8 +574,6 @@ class Employee(Base, rw_parent):
 
     STATUS = {0: 'Используется', 1: 'Не используется'}
 
-    access_groups = list()
-
     __tablename__ = 'employees'
 
     id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
