@@ -12,66 +12,74 @@
         <div class="table-responsive">
             <table class="table table-striped">
               <tbody>
-                <form method="post" action="save">
-                % for key in view_f:
-                    % if key not in edit_f:
-                    	<tr>
-                    	 <td>${all_f[key]}</td>
-                    	 <td> ${obj.__dict__[key]} 
-                        <input type="hidden" value="${obj.__dict__[key]}" name=${key} />
-                        </td>
-                    	</tr>
-                    % else:
-                    	<tr>
-                    	 <td> ${all_f[key]}</td>
-                    	 <td>
-                             %if key == 'dirs':
-                                 <select class="form-control" name="dirs">
-                                 % for d in obj.DIRS.keys():
-                                  <option value="${d}">${d}</option>
-                                 % endfor
-                                 </select>
-                             % elif key == 'disabled' and obj.uuid == session_context['uuid']:
-                                ${obj.STATUS[obj.__dict__[key]]}
-                                <span class="label label-info">Вы не можете изменить статус своего пользователя.</span>
-                             % elif key == 'disabled':
-                                 <select class="form-control" name="disabled">
-                                 % for d in obj.STATUS.keys():
-                                     % if d == obj.__dict__[key]:
-                                        <option selected value="${d}">${obj.STATUS[d]}</option>
-                                     % else:
-                                        <option value="${d}">${obj.STATUS[d]}</option>
-                                     % endif
-                                 % endfor
-                                 </select>
-                             % elif key == 'access_groups' and 'admin' in session_context['groups']:
-                                 <select multiple class="form-control" name="groups">
-                                 % for d in obj.ACCESS_GROUPS.keys():
-                                     % if d in obj.__dict__[key]:
-                                        <option value="${d}" selected>${obj.ACCESS_GROUPS[d]}</option>
-                                     % else:
-                                        <option value="${d}">${obj.ACCESS_GROUPS[d]}</option>
-                                     % endif
-                                 % endfor
-                                 </select>
-                             % elif key == 'access_groups':
-                                 % for d in obj.__dict__[key]:
-                                        ${obj.ACCESS_GROUPS[d]}<br>
-                                 % endfor
-                             % else:
-                             <input type="text" value="${obj.__dict__[key]}" name=${key} />
-                             % endif
+              % if obj.__dict__['uuid'] in neighbors or 'admin' in session_context['groups']:
+                  <form method="post" action="save">
+                    % for key in view_f:
+                        % if key not in edit_f:
+                            <tr>
+                             <td>${all_f[key]}</td>
+                             <td> ${obj.__dict__[key]}
+                            <input type="hidden" value="${obj.__dict__[key]}" name=${key} />
+                            </td>
+                            </tr>
+                        % else:
+                            <tr>
+                             <td> ${all_f[key]}</td>
+                             <td>
+                                 %if key == 'dirs':
+                                     <select class="form-control" name="dirs">
+                                     % for d in obj.DIRS.keys():
+                                      <option value="${d}">${d}</option>
+                                     % endfor
+                                     </select>
+                                 % elif key == 'disabled' and obj.uuid == session_context['uuid']:
+                                    ${obj.STATUS[obj.__dict__[key]]}
+                                    <span class="label label-info">Вы не можете изменить статус своего пользователя.</span>
+                                 % elif key == 'disabled':
+                                     <select class="form-control" name="disabled">
+                                     % for d in obj.STATUS.keys():
+                                         % if d == obj.__dict__[key]:
+                                            <option selected value="${d}">${obj.STATUS[d]}</option>
+                                         % else:
+                                            <option value="${d}">${obj.STATUS[d]}</option>
+                                         % endif
+                                     % endfor
+                                     </select>
+                                 % elif key == 'access_groups' and 'admin' in session_context['groups']:
+                                     <select multiple class="form-control" name="groups">
+                                     % for d in obj.ACCESS_GROUPS.keys():
+                                         % if d in obj.__dict__[key]:
+                                            <option value="${d}" selected>${obj.ACCESS_GROUPS[d]}</option>
+                                         % else:
+                                            <option value="${d}">${obj.ACCESS_GROUPS[d]}</option>
+                                         % endif
+                                     % endfor
+                                     </select>
+                                 % elif key == 'access_groups':
+                                     % for d in obj.__dict__[key]:
+                                            ${obj.ACCESS_GROUPS[d]}<br>
+                                     % endfor
+                                 % else:
+                                 <input type="text" value="${obj.__dict__[key]}" name=${key} />
+                                 % endif
 
-                         </td>
-                    	</tr>
-                    % endif
-                % endfor
-
-                	 <tr>
-                	 <td><a class="btn btn-primary" role="button" href="${session_context["back_ref"]}">Назад</a></td>
-                	 <td><button class="btn btn-success" type="submit">Записать</button></td>
+                             </td>
+                            </tr>
+                        % endif
+                    % endfor
+                         <tr>
+                         <td><a class="btn btn-primary" role="button" href="${session_context["back_ref"]}">Назад</a></td>
+                         <td><button class="btn btn-success" type="submit">Записать</button></td>
+                        </tr>
+                    </form>
+              % else:
+                    <div class="alert alert-warning" role="alert">
+                        <p>Недостаточно прав.</p>
+                    </div>
+                     <tr>
+                     <td><a class="btn btn-primary" role="button" href="${session_context["back_ref"]}">Назад</a></td>
                     </tr>
-                </form> 
+              % endif
               </tbody>
             </table>
         </div>

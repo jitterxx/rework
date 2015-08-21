@@ -16,9 +16,10 @@
             % endif
         </div>
         % for node in nodes:
+            % if node.__dict__['uuid'] in neighbors or 'admin' in session_context['groups']:
+
             <div class="well well-sm">
                 <p>
-
                 % if len(node.__dict__['custom_category']) == 0:
                     <a class="btn btn-default btn-xs" role="button" href="/object/${node.uuid}/addlink">Связать</a>
                 % else:
@@ -32,9 +33,7 @@
                 % for cat in auto_cats[node.uuid]:
                     <span class="label label-warning">${cats_name[cat[1]].name} - ${"{0:.1%}".format(float(cat[0]))}</span>
                 % endfor
-
                 </p>
-
                 <a href="/object/${node.uuid}">
                     % for key in node.SHORT_VIEW_FIELDS:
                         <strong>${node.ALL_FIELDS[key]}: </strong>
@@ -48,5 +47,6 @@
                     % endfor
                 </a>
             </div>
+            % endif
         % endfor
     </div>

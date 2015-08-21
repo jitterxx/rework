@@ -54,6 +54,7 @@ class EditObject():
             obj_keys = obj.get_attrs()
             f = obj.get_fields()
             session_context = cherrypy.session.get('session_context')
+            neighbors = G.neighbors(session_context['uuid'])
 
             print "session_context['menu'] : %s " % session_context['menu']
 
@@ -66,7 +67,8 @@ class EditObject():
 
             return tmpl.render(obj=obj, keys=obj_keys,
                                session_context=session_context,
-                               all_f=f[0], view_f=f[1], edit_f=f[2])
+                               all_f=f[0], view_f=f[1], edit_f=f[2],
+                               neighbors=neighbors)
 
 
 class ShowObject():
@@ -87,7 +89,10 @@ class ShowObject():
             obj_keys = obj.get_attrs()
             f = obj.get_fields()
             session_context = cherrypy.session.get('session_context')
+            neighbors = G.neighbors(session_context['uuid'])
+
             print "session_context['menu'] : %s " % session_context['menu']
+
             if session_context['menu'] in ['accounts', 'employee']:
                 session_context['back_ref'] = "/settings/?menu=" + session_context['menu']
             if session_context['menu'] == 'settings':
@@ -96,8 +101,7 @@ class ShowObject():
             session_context['menu'] = "show_object"
             return tmpl.render(obj=obj, keys=obj_keys,
                                session_context=session_context,
-                               all_f=f[0],
-                               view_f=f[1])
+                               all_f=f[0], view_f=f[1],neighbors=neighbors)
 
 
 class SaveObject():
@@ -141,8 +145,7 @@ class LinkObject(object):
         tmpl = lookup.get_template("add_link_to_ktree.html")
         obj = rwObjects.get_by_uuid(uuid)[0]
         custom = rwObjects.get_ktree_custom(session)
-        print type(custom)
-        print custom.keys()
+        #print custom.keys()
 
         return tmpl.render(obj=obj, category=custom,
                            session_context=cherrypy.session.get('session_context'))
@@ -189,6 +192,7 @@ class LinkObject(object):
             print st[1]
 
         print "Переадресация на : ", url
+        G.reload()
         session.close()
         raise cherrypy.HTTPRedirect(url)
 
@@ -506,7 +510,7 @@ class Timeline(object):
             link = 1
             v[0] = "active"
 
-        tmpl = lookup.get_template("timeline.html")
+        tmpl = lookup.get_template("old_timeline.html")
         session_context = cherrypy.session.get('session_context')
         session_context['back_ref'] = '/timeline'
         session_context['menu'] = 'timeline'
@@ -575,7 +579,7 @@ class Timeline(object):
             link = 1
             v[0] = "active"
 
-        tmpl = lookup.get_template("gtimeline.html")
+        tmpl = lookup.get_template("timeline.html")
         session_context = cherrypy.session.get('session_context')
         session_context['back_ref'] = '/timeline'
         session_context['menu'] = 'timeline'
@@ -822,11 +826,13 @@ class ShowKTreeCategory(object):
 
         cherrypy.session['session_context'] = session_context
 
-        print category_uuid
+        #print category_uuid
 
         session = rwObjects.Session()
         leaf = rwObjects.get_by_uuid(category_uuid)[0]
         nodes = list()
+        neighbors = G.neighbors(session_context['uuid'])
+        neighbors.append(session_context['uuid'])
 
         try:
             response = session.query(rwObjects.Reference). \
@@ -845,7 +851,7 @@ class ShowKTreeCategory(object):
             elif line.link == 0 and target.uuid == category_uuid:
                 nodes.append(source)
 
-        print nodes
+        #print nodes
 
         auto_cats = dict()
         for node in nodes:
@@ -854,7 +860,8 @@ class ShowKTreeCategory(object):
 
         return tmpl.render(obj=leaf, session=session, name=leaf.name,
                            nodes=nodes, session_context=session_context,
-                           auto_cats=auto_cats, cats_name=rwObjects.get_ktree_custom(session))
+                           auto_cats=auto_cats, cats_name=rwObjects.get_ktree_custom(session),
+                           neighbors=neighbors)
 
 
 class Any_object(object):
