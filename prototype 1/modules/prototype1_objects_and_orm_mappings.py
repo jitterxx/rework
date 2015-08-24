@@ -953,6 +953,11 @@ class Case(Base, rw_parent):
 
         """
 
+        session_flag = False
+        if not session:
+            session = Session()
+            session_flag = True
+
         self.NAME = "Кейс"
 
         self.EDIT_FIELDS = ['subject', 'query', 'solve', 'algorithm']
@@ -968,6 +973,8 @@ class Case(Base, rw_parent):
         cats = get_ktree_for_object(session)
         self.__dict__['custom_category'] = cats[0]
         self.__dict__['system_category'] = cats[1]
+        if session_flag:
+            session.close()
 
 
 class Used_case(Base, rw_parent):
@@ -1701,7 +1708,7 @@ def get_ktree_for_object(session,obj_uuid=None):
             filter(and_(Reference.source_type == 'knowledge_tree',
                         Reference.target_uuid == obj_uuid)).all()
     except Exception as e:
-        raise ("Ошибка доступа к базе References. Ошибка :  %s" % str(e))
+        raise e
     else:
         pass
 
@@ -1715,7 +1722,7 @@ def get_ktree_for_object(session,obj_uuid=None):
             else:
                 pass
     except Exception as e:
-        raise ("rwObjects.get_ktree_for_object. Операция get_by_uuid(r.source_uuid)[0]. Ошибка :  %s" % str(e))
+        raise e
     else:
         pass
 

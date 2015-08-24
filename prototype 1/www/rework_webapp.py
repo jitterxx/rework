@@ -946,7 +946,6 @@ class Case(object):
 
         return vpath
 
-
     @cherrypy.expose
     def add(self, uuid):
 
