@@ -101,7 +101,7 @@ class ShowObject():
             session_context['menu'] = "show_object"
             return tmpl.render(obj=obj, keys=obj_keys,
                                session_context=session_context,
-                               all_f=f[0], view_f=f[1],neighbors=neighbors)
+                               all_f=f[0], view_f=f[1], neighbors=neighbors)
 
 
 class SaveObject():
@@ -147,15 +147,18 @@ class LinkObject(object):
             obj = rwObjects.get_by_uuid(uuid)[0]
             custom = rwObjects.get_ktree_custom(session)
         except Exception as e:
-            return  ShowError("LinkObject.addlink. Операция rwObjects.get_by_uuid() или rwObjects.get_by_uuid(uuid)[0] "
-                              % str(e))
+            return ShowError("""LinkObject.addlink. Операция rwObjects.get_by_uuid() или
+                                rwObjects.get_by_uuid(uuid)[0]. Ошибка : %s""" % str(e))
         print custom.values()
+        used_category = rwObjects.get_ktree_for_object(session, uuid)[0]
 
+        session.close()
         return tmpl.render(obj=obj, category=custom,
-                           session_context=cherrypy.session.get('session_context'))
+                           session_context=cherrypy.session.get('session_context'),
+                           used_category=used_category)
 
     @cherrypy.expose
-    def savelink(self, object_uuid, object_type, category_type, category_uuid=None):
+    def savelink(self, object_uuid, object_type, category_type=None, category_uuid=None):
         data = cherrypy.request.params
         session_context = cherrypy.session.get('session_context')
         url = session_context['back_ref']
@@ -498,69 +501,6 @@ class Timeline(object):
         return vpath
 
     @cherrypy.expose
-    def old_index(self, view_type=None, date=None):
-
-        print "Тип отображения: %s" % view_type
-        print "Дата %s" % date
-        v = ["", "", ""]
-
-        if view_type == "links":
-            link = 0
-            v[2] = "active"
-        elif view_type == "create":
-            link = 1
-            v[1] = "active"
-        else:
-            link = 1
-            v[0] = "active"
-
-        tmpl = lookup.get_template("old_timeline.html")
-        session_context = cherrypy.session.get('session_context')
-        session_context['back_ref'] = '/timeline'
-        session_context['menu'] = 'timeline'
-        cherrypy.session['session_context'] = session_context
-        session = rwObjects.Session()
-        events = session.query(rwObjects.Reference).filter(rwObjects.Reference.link == link). \
-            order_by(rwObjects.desc(rwObjects.Reference.timestamp)).all()
-        obj_keys = events[0].get_attrs()
-        fields = events[0].get_fields()
-        actors = {}
-
-        for event in events:
-            event.read(session)
-            # print "Source UUID : %s" % event.source_uuid
-            # print "Target UUID : %s" % event.target_uuid
-            try:
-                obj = rwObjects.get_by_uuid(event.source_uuid)[0]
-            except Exception as e:
-                print e[0]
-                print e[1]
-                raise cherrypy.HTTPRedirect(session_context['back_ref'])
-            else:
-                if event.source_uuid not in actors.keys():
-                    actors[event.source_uuid] = obj
-                    print actors[event.source_uuid]
-
-            try:
-                obj = rwObjects.get_by_uuid(event.target_uuid)[0]
-            except Exception as e:
-                print e[0]
-                print e[1]
-                raise cherrypy.HTTPRedirect(session_context['back_ref'])
-            else:
-                if event.target_uuid not in actors.keys():
-                    actors[event.target_uuid] = obj
-                    print actors[event.target_uuid]
-
-        # print "events[0].get_fields() : %s" % fields
-        # print "obj_keys : %s " % obj_keys
-
-        return tmpl.render(obj=events, keys=obj_keys,
-                           session_context=session_context,
-                           all_f=fields[0], view_f=fields[1],
-                           actors=actors, view_type=v)
-
-    @cherrypy.expose
     def reload(self):
         print "webapp.Timeline.reload - RELOAD graph..."
         G.reload()
@@ -610,7 +550,7 @@ class Timeline(object):
             else:
                 if event.source_uuid not in actors.keys():
                     actors[event.source_uuid] = obj
-                    #print actors[event.source_uuid]
+                    # print actors[event.source_uuid]
 
             try:
                 obj = rwObjects.get_by_uuid(event.target_uuid)[0]
@@ -621,10 +561,10 @@ class Timeline(object):
             else:
                 if event.target_uuid not in actors.keys():
                     actors[event.target_uuid] = obj
-                    #print actors[event.target_uuid]
+                    # print actors[event.target_uuid]
 
-            # print "events[0].get_fields() : %s" % fields
-            # print "obj_keys : %s " % obj_keys
+                    # print "events[0].get_fields() : %s" % fields
+                    # print "obj_keys : %s " % obj_keys
 
         return tmpl.render(obj=events, keys=obj_keys,
                            session_context=session_context,
@@ -686,7 +626,7 @@ class KTree(object):
 
         return tmpl.render(obj=obj, keys=obj_keys, name="раздел Навигатора Знаний",
                            session_context=session_context,
-                           all_f=f[0],create_f=f[3],
+                           all_f=f[0], create_f=f[3],
                            experts=experts[1])
 
     @cherrypy.expose
@@ -824,7 +764,7 @@ class ShowKTreeCategory(object):
 
         cherrypy.session['session_context'] = session_context
 
-        #print category_uuid
+        # print category_uuid
 
         session = rwObjects.Session()
         leaf = rwObjects.get_by_uuid(category_uuid)[0]
@@ -849,7 +789,7 @@ class ShowKTreeCategory(object):
             elif line.link == 0 and target.uuid == category_uuid:
                 nodes.append(source)
 
-        #print nodes
+        # print nodes
 
         auto_cats = dict()
         for node in nodes:
@@ -941,7 +881,7 @@ class AccessGraph(object):
             G.add_node(str(line.source_uuid), obj=s_obj)
             G.add_node(str(line.target_uuid), obj=t_obj)
             G.add_edge(str(line.source_uuid), str(line.target_uuid), weight=int(line.link), timestamp=line.timestamp)
-            #print G.node[str(line.source_uuid)]
+            # print G.node[str(line.source_uuid)]
 
         self.graph = G
         session.close()
@@ -955,14 +895,114 @@ class AccessGraph(object):
 
         self.__init__()
 
-    def neighbors(self,uuid=None):
+    def neighbors(self, uuid=None):
 
         if uuid:
-            return self.graph.neighbors(uuid)+[uuid]
+            return self.graph.neighbors(uuid) + [uuid]
         else:
             return None
 
+
 G = AccessGraph()
+
+
+class Case(object):
+    """
+
+    """
+    _cp_config = {
+        'auth.require': [member_of('users')]
+    }
+
+    def _cp_dispatch(self, vpath):
+        """
+        Обработка REST URL
+        """
+
+        if len(vpath) == 1 and vpath[1] == 'add':
+            cherrypy.request.params['uuid'] = vpath[0]
+            print "Показываем объект : ", vpath
+            return ShowObject()
+        elif len(vpath) == 2 and vpath[1] == 'edit':
+            cherrypy.request.params['uuid'] = vpath[0]
+            print "Редактируем объект : ", vpath
+            return EditObject()
+        elif len(vpath) == 2 and vpath[1] == 'save':
+            print "Сохраняем объект : ", vpath
+            cherrypy.request.params['uuid'] = vpath[0]
+            return SaveObject()
+        elif len(vpath) == 2 and vpath[1] == 'addlink':
+            cherrypy.request.params['uuid'] = vpath[0]
+            print "Связываем объект : ", vpath
+            return LinkObject()
+        elif len(vpath) == 2 and vpath[1] == 'savelink':
+            cherrypy.request.params['object_uuid'] = vpath[0]
+            print "Сохраняем связь..."
+            return LinkObject()
+
+        elif len(vpath) == 0:
+            print "Вывод переадресации : ", vpath
+            return self
+
+        return vpath
+
+
+    @cherrypy.expose
+    def add(self, uuid):
+
+        tmpl = lookup.get_template("add_case.html")
+        session_context = cherrypy.session.get('session_context')
+        session = rwObjects.Session()
+        try:
+            do_object = rwObjects.get_by_uuid(uuid)[0]
+        except Exception as e:
+            return ShowError(str(e))
+        else:
+            pass
+
+        obj = rwObjects.Case()
+        obj_keys = obj.get_attrs()
+        f = obj.get_fields()
+        session.close()
+        return tmpl.render(obj=obj, keys=obj_keys, name=obj.NAME,
+                           session_context=session_context,
+                           all_f=f[0], create_f=f[3],
+                           do_object=do_object)
+
+    @cherrypy.expose
+    def edit(self):
+        return ShowError("Редактирование кейсов")
+
+    @cherrypy.expose
+    def create_new(self, **kwargs):
+        data = cherrypy.request.params
+        session_context = cherrypy.session.get('session_context')
+        url = session_context['back_ref']
+        print "Данные запроса: %s" % data
+
+        session = rwObjects.Session()
+        try:
+            source = rwObjects.get_by_uuid(session_context['uuid'])[0]
+        except Exception as e:
+            return ShowError("""Case.create_new. Операция: rwObjects.get_by_uuid(). Ошибка : %s""" % str(e))
+        else:
+            pass
+
+        try:
+            status, obj = rwObjects.create_new_object(session, "cases", data, source)
+        except Exception as e:
+            return ShowError("""Ktree.create_new. Операция: rwObjects.create_new_object(session, 'knowledge_tree',
+                             params, source). Ошибка : %s""" % str(e))
+        else:
+            uuid = str(obj.uuid)
+            print status
+
+        session.close()
+        raise cherrypy.HTTPRedirect("/object/%s/addlink" % uuid)
+
+    @cherrypy.expose
+    def save(self):
+        return ShowError("Сохранение")
 
 
 class Root(object):
@@ -980,6 +1020,7 @@ class Root(object):
     clients = Clients()
     ktree = KTree()
     account = Account()
+    cases = Case()
 
     @cherrypy.expose
     @require(member_of("users"))
@@ -1130,7 +1171,6 @@ class Root(object):
         return """Hello Joe Admin - this page is available to you only"""
 
 
-
 def get_session_context(login):
     context = cherrypy.session.get('session_context')
     # print "user login : %s" % login
@@ -1162,4 +1202,3 @@ cherrypy.config.update({
 
 if __name__ == '__main__':
     cherrypy.quickstart(Root(), '/', "app.config")
-

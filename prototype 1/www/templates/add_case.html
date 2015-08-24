@@ -1,0 +1,62 @@
+<%inherit file="page_structure.html"/>
+
+<%block name="title">
+    <title>Новый ${name}</title>
+    <link href="/static/css/dashboard.css" rel="stylesheet">
+    <script src="/static/ckeditor/ckeditor.js"></script>
+</%block>
+
+    <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
+        <h1 class="page-header">Новый ${name}</h1>
+        <h2 class="sub-header">для ${do_object.NAME} ${do_object.uuid}</h2>
+        <div class="table-responsive">
+            <table class="table table-striped">
+              <tbody>
+                <form method="post" action="create_new">
+                % for key in create_f:
+                    % if key == 'query':
+                        <tr>
+                         <td> ${all_f[key]}</td>
+                         <td>
+                             <textarea required rows="20" cols="80" name="${key}">
+                                 ${do_object.__dict__['text_html']}
+                             </textarea>
+                             <script>
+                             // Replace the <textarea id="editor1"> with a CKEditor
+                             // instance, using default configuration.
+                             CKEDITOR.replace("${key}");
+                             </script>
+
+                         </td>
+                        </tr>
+                    % elif key == 'solve':
+                        <tr>
+                         <td> ${all_f[key]}</td>
+                         <td>
+                             <textarea required rows="20" cols="80" name="${key}">
+
+                             </textarea>
+                             <script>
+                             // Replace the <textarea id="editor1"> with a CKEditor
+                             // instance, using default configuration.
+                             CKEDITOR.replace("${key}");
+                             </script>
+                         </td>
+                        </tr>
+                    % else:
+                        <tr>
+                         <td> ${all_f[key]}</td>
+                         <td> <input required type="text" value="" name=${key} /></td>
+                        </tr>
+                    % endif
+                % endfor
+                	 <tr>
+                	 <td><a class="btn btn-primary" role="button" href="${session_context['back_ref']}">Назад</a></td>
+                	 <td><button class="btn btn-success" type="submit">Далее</button></td>
+                    </tr>
+                </form> 
+              </tbody>
+            </table>
+        </div>
+
+    </div>

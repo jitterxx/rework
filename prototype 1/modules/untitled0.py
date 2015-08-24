@@ -109,7 +109,7 @@ session = rwObjects.Session()
 
 
 custom = rwObjects.get_ktree_custom(session)
-print custom
+print custom.keys()
 print type(custom)
 
 session.close()

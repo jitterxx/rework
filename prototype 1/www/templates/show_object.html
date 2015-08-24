@@ -10,12 +10,6 @@
         <h2 class="sub-header">${obj.NAME}</h2>
         <div class="table-responsive">
             <table class="table table-striped">
-              <thead>
-                <tr>
-                  <th>Свойство</th>
-                  <th>Значение</th>
-                </tr>
-              </thead>
               <tbody>
                 % if obj.__dict__['uuid'] in neighbors or 'admin' in session_context['groups']:
                         % for key in view_f:
@@ -43,8 +37,13 @@
                 % endif
 
                 	 <tr>
-                	 <td> <a href="${session_context['back_ref']}">Назад</a></td>
-                	 <td> <a href="edit">Редактировать</a></td>
+                	 <td><a href="${session_context['back_ref']}">Назад</a></td>
+                	 <td><a href="edit">Редактировать</a></td>
+                     <td>
+                         % if 'admin' in session_context['groups'] or 'expert' in session_context['groups']:
+                         <a href="/cases/add?uuid=${obj.uuid}">Создать кейс</a>
+                         % endif
+                     </td>
                     </tr>
               </tbody>
             </table>

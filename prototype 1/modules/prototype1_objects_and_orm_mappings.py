@@ -50,7 +50,7 @@ rwChannel_type = ["email", "facebook", "phone", "vk"]
 #mongo_uri = 'mongodb://localhost/rsa'
 #sql_uri = 'mysql://rework:HtdjhR123@localhost/rework?charset=utf8'
 
-STANDARD_OBJECTS_TYPES = ['accounts', 'employees', 'messages']
+STANDARD_OBJECTS_TYPES = ['accounts', 'employees', 'messages', 'cases']
 
 """
 Константа содержит список типов объектов (для всех классов кроме DynamicObjects это свойство __tablename__,
@@ -938,11 +938,36 @@ class Case(Base, rw_parent):
 
     id = Column(sqlalchemy.Integer, primary_key=True)
     uuid = Column(sqlalchemy.String(50), default=uuid.uuid1())
-    category = Column(sqlalchemy.String(256))
+#    category = Column(sqlalchemy.String(256))
     subject = Column(sqlalchemy.String(256))
     query = Column(sqlalchemy.TEXT())
     solve = Column(sqlalchemy.TEXT())
     algorithm = Column(sqlalchemy.TEXT())
+
+    def __init__(self):
+        self.uuid=uuid.uuid1()
+        self.read()
+
+    def read(self, session=None):
+        """
+
+        """
+
+        self.NAME = "Кейс"
+
+        self.EDIT_FIELDS = ['subject', 'query', 'solve', 'algorithm']
+        self.ALL_FIELDS = {'id': 'id',
+                            'uuid': 'Идентификатор',
+                            'subject': 'Тема',
+                            'query': 'Запрос',
+                            'solve': 'Ответ',
+                            'algorithm': 'Алгоритм'}
+        self.VIEW_FIELDS = ['subject', 'query', 'solve', 'algorithm']
+        self.ADD_FIELDS = ['subject', 'query', 'solve', 'algorithm']
+        self.SHORT_VIEW_FIELDS = ['subject', 'query']
+        cats = get_ktree_for_object(session)
+        self.__dict__['custom_category'] = cats[0]
+        self.__dict__['system_category'] = cats[1]
 
 
 class Used_case(Base, rw_parent):
@@ -1658,6 +1683,45 @@ def get_ktree_custom(session):
     return custom
 
 
+def get_ktree_for_object(session,obj_uuid=None):
+    """
+    Возвращает списоки узлов Навигатора Знаний к которым привязан объект.
+
+    :param session: Сессия ORM
+    :param obj_uuid: UUID объекта для которого ищем узлы.
+
+    :return: список из двух элементов. Первый словарь custom узлов, где ключи это UUID узлов, а значения объекты \
+    узлов. Второй sysytem узлов, где ключи это UUID узлов, а значения объекты.
+    """
+
+    custom_leafs = dict()
+    system_leafs = dict()
+    try:
+        res = session.query(Reference).\
+            filter(and_(Reference.source_type == 'knowledge_tree',
+                        Reference.target_uuid == obj_uuid)).all()
+    except Exception as e:
+        raise ("Ошибка доступа к базе References. Ошибка :  %s" % str(e))
+    else:
+        pass
+
+    try:
+        for r in res:
+            leaf = get_by_uuid(r.source_uuid)[0]
+            if leaf.type == 'custom':
+                custom_leafs[r.source_uuid] = leaf
+            elif leaf.type == 'system':
+                system_leafs[r.source_uuid] = leaf
+            else:
+                pass
+    except Exception as e:
+        raise ("rwObjects.get_ktree_for_object. Операция get_by_uuid(r.source_uuid)[0]. Ошибка :  %s" % str(e))
+    else:
+        pass
+
+    return [custom_leafs,system_leafs]
+
+
 class Question(Base, rw_parent):
     """
     Вопросы которые задаются пользователю.
@@ -1943,6 +2007,12 @@ def create_new_object(session, object_type, params, source):
     elif object_type == "classifiers":
         CL = Classifier()
         st, new_obj = rwLearn.init_classifier(session, CL, 'svc')
+
+    elif object_type == "cases":
+        new_obj = Case()
+        for f in new_obj.ADD_FIELDS:
+            if f in params.keys() and params[f] != "":
+                new_obj.__dict__[f] = params[f]
 
     else:
         status[False, "Объект типа " + object_type + " создать нельзя."]
