@@ -118,7 +118,7 @@ def get_messages_for_account(account_uuid):
 
 
 @app.task()
-def apply_rules(source_uuid, source_type, target_uuid, target_type):
+def apply_rules_for_1(source_uuid, source_type, target_uuid, target_type):
     """
     В момент появления связи "создания" между объектами проходит проверка автоматических правил.
     Эта функция вызывается автоматически при вызове функции Reference.create()
@@ -168,7 +168,7 @@ def apply_rules(source_uuid, source_type, target_uuid, target_type):
 
         """
         Objects Rule #2
-        Правило 2. Empl создает Emplsubtask
+        Правило 2. Empl создает Empl
         Если S = Employee и T = Employee, то связываем нового пользователя с Компанией.
             Пользователя создает суперюзер, он связан со своей компанией линком весом 0.
         """
@@ -240,5 +240,55 @@ def apply_rules(source_uuid, source_type, target_uuid, target_type):
 
     session.close()
     return "OK"
+
+
+@app.task()
+def apply_rules_for_0(source_uuid, source_type, target_uuid, target_type):
+    """
+    В момент появления связи между объектами проходит проверка правил.
+    Эта функция вызывается автоматически при вызове функции Reference.create() когда link = 0.
+
+    :param source_uuid: UUID объекта источника
+    :param source_type: тип объекта источника
+    :param target_uuid: UUID объекта цели
+    :param target_type: тип объекта цели
+    :return string: OK, в случае успеха.
+    :exception e: Ошибка в случае исключения.
+    """
+
+    session = rwObjects.Session()
+
+    """
+    Если среди участников проверки есть DynamicObject, то ищем его внутренний тип.
+    """
+    tt = target_type
+    st = source_type
+    if target_type == "dynamic_object":
+        response = session.query(rwObjects.DynamicObject). \
+            filter(rwObjects.DynamicObject.uuid == target_uuid).one()
+        tt = response.obj_type
+
+    elif source_type == "dynamic_object":
+        response = session.query(rwObjects.DynamicObject). \
+            filter(rwObjects.DynamicObject.uuid == source_uuid).one()
+        tt = response.obj_type
+
+    """
+    Rule #1
+     При связывании ветки Навигатора Знаний и DO, проверяем какую операцию надо выполнить согласно настройкам ветки.
+     Если не no, то выполняем операцию.
+    """
+    if st == 'knowledge_tree' and target_type == 'dynamic_object':
+        source_obj = rwObjects.get_by_uuid(source_uuid)[0]
+        if source_obj.__class__.__name__ != 'KnowledgeTree' and source_obj.action == 'no':
+            print "\n ----- Rule #1. Ничего не делаем -----\n"
+            return "OK."
+
+        print source_obj.action
+        if source_obj.action == 'create_case':
+            print "\nСоздаем кейс\n"
+        else:
+            pass
+
 
 

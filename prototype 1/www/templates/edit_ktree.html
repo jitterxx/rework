@@ -43,6 +43,16 @@
                          % elif key == 'name' and obj.type == 'system':
                              ${obj.__dict__[key]}  <span class="label label-info">Системный раздел</span>
                              <input type="hidden" value="${obj.__dict__[key]}" name="${key}"/>
+                         % elif key == 'action' and 'admin' in session_context['groups']:
+                             <select class="form-control" name="action">
+                             % for d in obj.__dict__['ACTION_LIST'].keys():
+                                 % if d == obj.action:
+                                    <option selected value="${d}">${obj.__dict__['ACTION_LIST'][d]}</option>
+                                 % else:
+                                    <option value="${d}">${obj.__dict__['ACTION_LIST'][d]}</option>
+                                 % endif
+                             % endfor
+                             </select>
                          % else:
                          <input type="text" value="${obj.__dict__[key]}" name=${key} />
                          % endif

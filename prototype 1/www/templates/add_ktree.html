@@ -17,12 +17,35 @@
                     	<tr>
                     	 <td> ${all_f[key]}</td>
                             % if key in ["parent_id","type"]:
-                    	 <td>${session_context['parent_name']}<input type="hidden" value="${session_context[key]}" name=${key} /></td>
+                            <td>
+                                ${session_context['parent_name']}<input type="hidden" value="${session_context[key]}" name=${key} />
+                            </td>
+                            % elif key == 'expert':
+                            <td>
+                                <select class="form-control" name="expert">
+                                    % for d in experts:
+                                    <option value="${d.login}">${d.name} ${d.surname}</option>
+                                    % endfor
+                                </select>
+                            </td>
+                            % elif key == 'action':
+                            <td>
+                                <select class="form-control" name="action">
+                                    % for d in obj.ACTION_LIST.keys():
+                                        % if d == 'no':
+                                    <option selected value="${d}">${obj.ACTION_LIST[d]}</option>
+                                        % else:
+                                    <option value="${d}">${obj.ACTION_LIST[d]}</option>
+                                        % endif
+                                    % endfor
+                                </select>
+                            </td>
                             % else:
-                    	 <td> <input type="text" value="" name=${key} /></td>
+                            <td>
+                                <input type="text" value="" name=${key} />
+                            </td>
                             % endif
                     	</tr>
-
                 % endfor
                 	 <tr>
                 	 <td><a class="btn btn-primary" role="button" href="${session_context["back_ref"]}">Назад</a></td>

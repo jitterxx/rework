@@ -140,12 +140,16 @@ class LinkObject(object):
     @cherrypy.expose
     def addlink(self, uuid):
         data = cherrypy.request.params
-        print uuid
         session = rwObjects.Session()
         tmpl = lookup.get_template("add_link_to_ktree.html")
-        obj = rwObjects.get_by_uuid(uuid)[0]
-        custom = rwObjects.get_ktree_custom(session)
-        #print custom.keys()
+
+        try:
+            obj = rwObjects.get_by_uuid(uuid)[0]
+            custom = rwObjects.get_ktree_custom(session)
+        except Exception as e:
+            return  ShowError("LinkObject.addlink. Операция rwObjects.get_by_uuid() или rwObjects.get_by_uuid(uuid)[0] "
+                              % str(e))
+        print custom.values()
 
         return tmpl.render(obj=obj, category=custom,
                            session_context=cherrypy.session.get('session_context'))
@@ -678,11 +682,12 @@ class KTree(object):
         obj = rwObjects.KnowledgeTree()
         obj_keys = obj.get_attrs()
         f = obj.get_fields()
+        experts = rwObjects.get_userlist_in_group(session, 'expert')
 
         return tmpl.render(obj=obj, keys=obj_keys, name="раздел Навигатора Знаний",
                            session_context=session_context,
-                           all_f=f[0],
-                           create_f=f[3])
+                           all_f=f[0],create_f=f[3],
+                           experts=experts[1])
 
     @cherrypy.expose
     def edit(self, uuid):
@@ -716,11 +721,13 @@ class KTree(object):
         params = dict()
 
         try:
+
             params['parent_id'] = data['parent_id']
             params['name'] = data['name']
             params['description'] = data['description']
             params['tags'] = data['tags']
             params['expert'] = data['expert']
+            params['action'] = data['action']
         except Exception as e:
             raise e
         else:
@@ -753,42 +760,28 @@ class KTree(object):
         print session_context
         print "Переадресация на show_object... ", url
 
-        params = dict()
-
-        try:
-            params['parent_id'] = data['parent_id']
-            params['name'] = data['name']
-            params['description'] = data['description']
-            params['tags'] = data['tags']
-            params['expert'] = session_context['login']
-            params['type'] = data['type']
-        except Exception as e:
-            raise (e)
-        else:
-            pass
-
-        """
-        Проверка параметров тут.
-        """
         session = rwObjects.Session()
         try:
-            rwObjects.KnowledgeTree.ktree_return_childs(session, params['parent_id'])
+            rwObjects.KnowledgeTree.ktree_return_childs(session, data['parent_id'])
         except Exception as e:
-            raise (e)
+            return ShowError("""Ktree.create_new. Операция: rwObjects.KnowledgeTree.ktree_return_childs(session,
+            data['parent_id']). Ошибка : %s""" % str(e))
         else:
             pass
-            print
 
         source = rwObjects.get_by_uuid(session_context['uuid'])[0]
 
         """
         Создаем новый объект класса KnowledgeTree
         Для каждого нового типа необходимо добавить в  create_new_object условия.
+        Проверка параметров происходит там же, если чего-то не хватает то ловим Exception.
         """
+
         try:
-            status, obj = rwObjects.create_new_object(session, "knowledge_tree", params, source)
+            status, obj = rwObjects.create_new_object(session, "knowledge_tree", data, source)
         except Exception as e:
-            raise (e)
+            return ShowError("""Ktree.create_new. Операция: rwObjects.create_new_object(session, 'knowledge_tree',
+                             params, source). Ошибка : %s""" % str(e))
         else:
             print status
 
@@ -948,7 +941,7 @@ class AccessGraph(object):
             G.add_node(str(line.source_uuid), obj=s_obj)
             G.add_node(str(line.target_uuid), obj=t_obj)
             G.add_edge(str(line.source_uuid), str(line.target_uuid), weight=int(line.link), timestamp=line.timestamp)
-            print G.node[str(line.source_uuid)]
+            #print G.node[str(line.source_uuid)]
 
         self.graph = G
         session.close()

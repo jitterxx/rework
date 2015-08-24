@@ -864,7 +864,10 @@ class Reference(Base, rw_parent):
             r_status[1] = 'Reference object ID: ' + str(self.id) + ' writed.'
             if self.link == 1:
                 """ Вызываем функцию проверки автоматических правил при появлении нового объекта"""
-                rwQueue.apply_rules.delay(self.source_uuid, self.source_type, self.target_uuid, self.target_type)
+                rwQueue.apply_rules_for_1.delay(self.source_uuid, self.source_type, self.target_uuid, self.target_type)
+            elif self.link == 0:
+                """ Вызываем функцию проверки правил при связывании объектов"""
+                rwQueue.apply_rules_for_0.delay(self.source_uuid, self.source_type, self.target_uuid, self.target_type)
 
         return r_status
 
@@ -1461,6 +1464,8 @@ class KnowledgeTree(Base, rw_parent):
     системный, не подлежит изменению пользователями и к нему могут быть привязаны автоматические типы. \
     **custom** -- пользовательский, может быть создан и изменен в настройках. Для таких узлов проводятся процедуры \
     распознавания и классификации объектов системы с помощью классификаторов.
+    :parameter action: действие (пока это закодированные функции) которое будут выполнено при появлении в этом узле
+    объекта определенного класса (DO).
 
     Постоянные свойства класса:
 
@@ -1473,14 +1478,19 @@ class KnowledgeTree(Base, rw_parent):
     parent = []
 
     NAME = "Раздел Навигатора Знаний"
-    EDIT_FIELDS = ['name', 'description', 'tags', 'expert']
+
+    """
+    EDIT_FIELDS = ['name', 'description', 'tags', 'expert', 'action']
     ALL_FIELDS = {'name': 'Название раздела', 'description': 'Описание',
                   'tags': 'Теги', 'expert': 'Ответственный',
                   'id': 'id', 'uuid': 'Идентификатор',
                   'parent_id': 'Родительский раздел', 'tags_clf': 'tags_clf',
-                  'objects_class': 'Автоматически привязываются', 'type': 'Тип узла'}
-    VIEW_FIELDS = ['name', 'description', 'tags', 'expert']
-    ADD_FIELDS = ['type', 'parent_id', 'name', 'description', 'tags', 'expert', 'objects_class']
+                  'objects_class': 'Автоматически привязываются', 'type': 'Тип узла',
+                  'action': 'Что делать при появлении нового объекта'}
+    VIEW_FIELDS = ['name', 'description', 'tags', 'expert', 'action']
+    ADD_FIELDS = ['type', 'parent_id', 'name', 'description', 'tags', 'expert', 'action', 'objects_class']
+    ACTION_LIST = {'no': 'ничего', 'create_case': 'создавать Кейс'}
+    """
 
     id = Column(sqlalchemy.Integer, primary_key=True)
     uuid = Column(sqlalchemy.String(50), default=uuid.uuid1())
@@ -1492,21 +1502,25 @@ class KnowledgeTree(Base, rw_parent):
     tags_clf = Column(sqlalchemy.String(256), default="")
     objects_class = Column(sqlalchemy.String(256), default="")
     type = Column(sqlalchemy.String(256), default="")
+    action = Column(sqlalchemy.String(256), default="no")
 
     def __init__(self):
         self.uuid = uuid.uuid1()
+        self.read()
 
-    def read(self, session):
+    def read(self, session=None):
         self.NAME = "Тема Навигатора Знаний"
-        self.EDIT_FIELDS = ['parent_id', 'name', 'description', 'tags', 'expert']
+        self.EDIT_FIELDS = ['parent_id', 'name', 'description', 'tags', 'expert', 'action']
         self.ALL_FIELDS = {'name': 'Название', 'description': 'Описание',
                            'tags': 'Теги', 'expert': 'Ответственный эксперт',
                            'id': 'id', 'uuid': 'Идентификатор',
                            'parent_id': 'Родительский раздел', 'tags_clf': 'tags_clf',
-                           'objects_class': 'Автоматически привязываются', 'type': 'Тип узла'}
-        self.VIEW_FIELDS = ['parent_id', 'name', 'description', 'tags', 'expert']
+                           'objects_class': 'Автоматически привязываются', 'type': 'Тип узла',
+                           'action': 'Что делать при появлении нового объекта'}
+        self.VIEW_FIELDS = ['parent_id', 'name', 'description', 'tags', 'expert', 'action']
         self.SHORT_VIEW_FIELDS = ['name', 'description', 'expert']
-        self.ADD_FIELDS = ['type', 'parent_id', 'name', 'description', 'tags', 'expert', 'objects_class']
+        self.ADD_FIELDS = ['type', 'parent_id', 'name', 'description', 'tags', 'expert', 'action', 'objects_class']
+        self.ACTION_LIST = {'no': 'ничего', 'create_case': 'создавать Кейс'}
 
     def get_objects_classes(self):
         """
@@ -1637,7 +1651,7 @@ def get_ktree_custom(session):
         res = session.query(KnowledgeTree). \
             filter(KnowledgeTree.type == 'custom').all()
     except Exception as e:
-        return [False, "Ошибка доступа к базе классификаторов при обучении."]
+        raise ("Ошибка доступа к базе узлов Навигатора Знаний. Ошибка :  %s" % str(e))
     else:
         for r in res:
             custom[r.uuid] = r
@@ -1801,7 +1815,7 @@ def set_by_uuid(uuid, data):
     print keys
 
     """
-    Если во время сохранения надо заменить или раскрытьполя объекта, это делается тут.
+    Если во время сохранения изменений надо проверить, заменить или раскрыть поля объекта, это делается тут.
     """
     if obj.__class__.__name__ == 'Account':
         if 'dirs' in keys:
@@ -1823,15 +1837,16 @@ def set_by_uuid(uuid, data):
 
     try:
         data.pop("id")
-    except KeyError:
+    except KeyError as e:
         s = s + "\n нет ключа."
     else:
         s = s + "\n Ключ ID удален."
 
     try:
         data.pop("uuid")
-    except KeyError:
+    except KeyError as e:
         s = s + "\n нет ключа."
+        raise Exception("set_bu_uuid(). Не указан UUID. Ошибка : %s"%str(e))
     else:
         s = s + "\n Ключ UUID удален."
 

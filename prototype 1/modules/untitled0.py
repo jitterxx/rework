@@ -106,28 +106,10 @@ session = rwObjects.Session()
 #print len(fl)
 
 #print obj.__dict__['text_clear']
-link = 0
 
-response = session.query(rwObjects.Reference).filter(rwObjects.Reference.link == int(link)).all()
 
-G = nx.Graph()
-labels = {}
-for line in response:
-    G.add_node(str(line.source_uuid),obj = line.source_type)
-    G.add_node(str(line.target_uuid),obj = line.target_type)
-    G.add_edge(str(line.source_uuid),str(line.target_uuid), comment = link)
-
-for node in G.nodes():
-    obj = rwObjects.get_by_uuid(node)[0]
-    labels[node]=obj.NAME
-
-pos = nx.spring_layout(G)
-plt.figure(1,figsize=(10,10))
-nx.draw_networkx_nodes(G,pos)
-nx.draw_networkx_labels(G,pos,labels=labels, font_size=7)
-nx.draw_networkx_edges(G,pos)
-plt.show()
-plt.close()
-
+custom = rwObjects.get_ktree_custom(session)
+print custom
+print type(custom)
 
 session.close()
