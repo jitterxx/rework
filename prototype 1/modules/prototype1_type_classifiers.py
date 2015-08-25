@@ -805,10 +805,11 @@ def train_neighbors(session, clf_uuid):
     vec = vectorizer.fit(train_data)
 
     print "\nСохраняем матрицу векторов."
-    joblib.dump(vec, CL.vec_path, compress=9)
+    #joblib.dump(vec, CL.vec_path, compress=9)
 
     print "\nТрансформируем набор текстов для обучения."
-    V = vec.transform(train_data).todense()
+    v = vec.fit_transform(train_data)
+    V = v.todense()
 
     # Тренировка
     print "\nОбучаем классификатор..."

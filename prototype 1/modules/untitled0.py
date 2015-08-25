@@ -39,6 +39,7 @@ from sklearn.decomposition import PCA
 msg1 = rwObjects.get_by_uuid('61779b3a-475a-11e5-8833-f46d04d35cbd')[0]
 msg1.clear_text()
 test_data = [msg1.__dict__['text_clear']]
+print test_data
 
 # Данные для обучения кластера
 # Получаем все кейсы
@@ -52,6 +53,8 @@ for case in resp:
     c = rwObjects.get_text_from_html(case.query)
     train_data.append(c)
     train_uuid.append(case)
+    print case.subject
+    print c
 
 x = vectorizer.fit_transform(train_data)
 print "Размеры : %s %s " % x.shape
@@ -79,6 +82,7 @@ for i in indices[0]:
 
 
 #rwLearn.train_neighbors(session, rwObjects.default_neighbors_classifier)
+
 
 result = rwLearn.predict_neighbors(rwObjects.default_neighbors_classifier, test_data)
 

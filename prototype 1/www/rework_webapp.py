@@ -1007,6 +1007,7 @@ class Case(object):
                              params, source). Ошибка : %s""" % str(e))
         else:
             uuid = str(obj.uuid)
+            rwLearn.train_neighbors(session, rwObjects.default_neighbors_classifier)
             print status
 
         # Линкуем новый Case с объектом из которго он был создан
