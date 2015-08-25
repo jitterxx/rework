@@ -8,6 +8,19 @@
 
     <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
         <h2 class="sub-header">${obj.NAME}</h2>
+        % if obj.__tablename__ == 'dynamic_object':
+            <p>Кейсы:
+                % for i in nbrs:
+                    % if i[1] < 0.9:
+                        <a href="/object/${cases[i[0]].uuid}">
+                            <span class="label label-warning">
+                                ${cases[i[0]].subject}
+                            </span>
+                        </a>
+                    % endif
+                % endfor
+            </p>
+        % endif
         <div class="table-responsive">
             <table class="table table-striped">
               <tbody>

@@ -225,7 +225,7 @@ def apply_rules_for_1(source_uuid, source_type, target_uuid, target_type):
         clf_uuid = "ed38261a-41cb-11e5-aae5-f46d04d35cbd"
         obj.clear_text()
         print str(obj.text_plain)
-        probe,Z = rwLearn.predict(clf_uuid,[obj.text_plain])
+        probe, Z = rwLearn.predict(clf_uuid,[obj.text_plain])
         print 'Вероятности : %s' % probe
         categories = rwObjects.get_ktree_custom(session)
         print 'Категория : %s' % categories[Z[0]].name

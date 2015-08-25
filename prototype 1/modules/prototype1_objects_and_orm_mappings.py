@@ -23,7 +23,7 @@ import prototype1_type_classifiers as rwLearn
 import pymongo
 import re
 import operator
-from configurations import LEARN_PATH, mongo_uri, sql_uri, default_classifier
+from configurations import *
 
 import sys
 
@@ -250,7 +250,18 @@ def create_company():
         raise (e)
     else:
         print status
-        print "\nЗапишите UUID классификатора в файл modules/configurations.py"
+        print "\nЗапишите UUID классификатора в файл modules/configurations.py  в переменную default_classifier"
+        print "\n %s \n" % str(clf.uuid)
+
+    print "Создаем базовый классификатор для вычисления расстояний Навигатора Знаний."
+    try:
+        status, clf = rwLearn.init_classifier(session, Classifier(), 'nbrs')
+    except Exception as e:
+        raise (e)
+    else:
+        print status
+        print """\nЗапишите UUID классификатора в файл modules/configurations.py  в переменную \
+                    default_neighbors_classifier"""
         print "\n %s \n" % str(clf.uuid)
 
     session.close()
@@ -971,8 +982,8 @@ class Case(Base, rw_parent):
         self.ADD_FIELDS = ['subject', 'query', 'solve', 'algorithm']
         self.SHORT_VIEW_FIELDS = ['subject']
         cats = get_ktree_for_object(session,self.uuid)
-        print cats[0]
-        print cats[1]
+        #print cats[0]
+        #print cats[1]
         self.__dict__['custom_category'] = cats[0].values()
         self.__dict__['system_category'] = cats[1].values()
         if session_flag:

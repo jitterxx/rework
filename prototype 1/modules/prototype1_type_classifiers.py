@@ -40,10 +40,12 @@ from sklearn.cluster import KMeans
 from sklearn import metrics
 from sklearn import tree
 from sklearn import svm
+from sklearn.neighbors import NearestNeighbors
 import ast
 import base64
 from sklearn.externals import joblib
 import sqlalchemy
+import operator
 
 
 import sys
@@ -296,6 +298,9 @@ def init_classifier(session,clf_obj,clf_type):
     elif clf_type == "svc":
         clf_obj.clf_type = 'svc'
         clf = svm.SVC(kernel='linear', C=1.0, probability=True)
+    elif clf_type == "nbrs":
+        clf_obj.clf_type = 'nbrs'
+        clf = NearestNeighbors(n_neighbors=3, algorithm='ball_tree')
     else:
         status[0] = False
         status[1] = "Указан неверный тип классификатора."
@@ -410,15 +415,20 @@ def predict(clf_uuid,dataset):
 
     try:
         clf = joblib.load(CL.clf_path)
-        #print clf.get_params
     except Exception as e:
-        print "Ошибка чтения файла векторизатора %s" % CL.clf_path
+        print "Ошибка чтения файла классификатора %s" % CL.clf_path
         raise e
     else:
         pass
 
-    v = joblib.load(CL.vec_path)
-    
+    try:
+        v = joblib.load(CL.vec_path)
+    except Exception as e:
+        print "Ошибка чтения файла векторизатора %s" % CL.vec_path
+        raise e
+    else:
+        pass
+
     v = v.transform(dataset)
     V = v.todense()    
     Z = clf.predict(V)
@@ -694,7 +704,7 @@ def autoclassify_all_notlinked_objects():
             print "--------------Классификация закончена.------------------"
 
             # Сохраняем результаты классификации
-            status = save_classification_result(session,obj.uuid,clf_uuid,probe)
+            status = save_classification_result(session,obj.uuid,rwObjects.default_classifier,probe)
             if status[0]:
                 print "Данные классификации сохранены."
             else:
@@ -730,3 +740,147 @@ def clear_autoclassify(session,target_uuid):
         pass
 
     return [True,"OK"]
+
+
+def train_neighbors(session, clf_uuid):
+    """
+    Переобучение алгоритма вычисления ближайшего Кейса к сообщениям.
+
+    Переобучение проводится по всем существующим в системе Кейсам. Для обучения используется свойство query обектов \
+    класса Case.
+
+    :param session: Сессия ORM
+    :param clf_uuid: UUID объекта класса Classifier в котором храняться данные алгоритма
+
+    :return: ничего, если все прошло успешно или вылетает по исключению.
+    :exception: общий тип Exception
+    """
+
+    session_flag = False
+    if not session:
+        session = rwObjects.Session()
+        session_flag = True
+
+    """Загружаем классификатор расстояний """
+    try:
+        CL = session.query(rwObjects.Classifier).\
+            filter(rwObjects.Classifier.uuid == clf_uuid).one()
+    except rwObjects.sqlalchemy.orm.exc.NoResultFound as e:
+        print "Классификатор не найден. "
+        print """rwLearn.train_neighbors(session, clf_uuid). Операция: session.query(rwObjects.Classifier).
+                Ошибка: %s""" % str(e)
+        raise e
+    except rwObjects.sqlalchemy.orm.exc.MultipleResults as e:
+        print "Найдено больше одного классификатора с данным UUID: %s. "%clf_uuid
+        print """rwLearn.train_neighbors(session, clf_uuid). Операция: session.query(rwObjects.Classifier).
+                Ошибка: %s""" % str(e)
+        raise e
+    else:
+        print "\nКлассификатор загружен."
+        clf = joblib.load(CL.clf_path)
+        print clf.get_params
+
+    """Загружаем все Кейсы из системы и готовим данные для тренировки"""
+    try:
+        resp = session.query(rwObjects.Case).all()
+    except Exception as e:
+        print """rwLearn.train_neighbors(session, clf_uuid). Операция: session.query(rwObjects.Case).all().
+                Ошибка: %s""" % str(e)
+        raise e
+    else:
+        pass
+
+    """Готовим данные для тренировки  """
+    train_data = []
+    train_uuid = []
+
+    for case in resp:
+        c = rwObjects.get_text_from_html(case.query)
+        train_data.append(c)
+        train_uuid.append(case.uuid)
+
+    vectorizer = TfidfVectorizer(tokenizer=tokenizer_3, max_features=200)
+
+    print "\nГотовим матрицу векторов ..."
+    vec = vectorizer.fit(train_data)
+
+    print "\nСохраняем матрицу векторов."
+    joblib.dump(vec, CL.vec_path, compress=9)
+
+    print "\nТрансформируем набор текстов для обучения."
+    V = vec.transform(train_data).todense()
+
+    # Тренировка
+    print "\nОбучаем классификатор..."
+    clf.fit(V)
+    CL.targets = ','.join(train_uuid)
+
+    try:
+        print "\nСохраняем классификатор в файл..."
+        joblib.dump(clf, CL.clf_path, compress=9)
+    except Exception as e:
+        print "Ошибка сохранения классификатора в файл "+str(CL.clf_path)
+        print """rwLearn.train_neighbors(session, clf_uuid). Операция: joblib.dump(clf, CL.clf_path, compress=9).
+                Ошибка: %s""" % str(e)
+        raise e
+    else:
+        session.add(CL)
+        session.commit()
+        print u"Классификатор сохранен после обучения. \n"
+
+    if session_flag:
+        session.close()
+
+
+def predict_neighbors(clf_uuid,dataset):
+    """
+    Вычисляет ближайших сосдей для указанного dataset.
+
+    :param clf_uuid: UUID классификатора расстояний
+    :param dataset: текст для которого необходимо найти похожий
+    :return: список UUID объектов класса Case, которые похожи на образец. Отсортирован в порядке вызастания\
+    расстояния, т.е. уменьшения схожести.
+    """
+
+    session = rwObjects.Session()
+
+    try:
+        CL = session.query(rwObjects.Classifier).\
+            filter(rwObjects.Classifier.uuid == clf_uuid).one()
+    except Exception as e:
+        print "Классификатор не найден. "
+        print """rwLearn.predict_neighbors(session, clf_uuid). Операция: session.query(rwObjects.Classifier).
+                Ошибка: %s""" % str(e)
+        raise e
+    else:
+        print "Описание классификатора загружено."
+
+    try:
+        clf = joblib.load(CL.clf_path)
+        vec = joblib.load(CL.vec_path)
+    except Exception as e:
+        print "Ошибка чтения файлов классификатора %s" % CL.clf_path
+        print """rwLearn.predict_neighbors(session, clf_uuid). Операция: clf = joblib.load(CL.clf_path).
+                Ошибка: %s""" % str(e)
+        raise e
+    else:
+        pass
+        #print clf
+        #print type(vec)
+        #print CL.targets
+
+    v = vec.transform(dataset)
+    V = v.todense()
+    distances, indices = clf.kneighbors(V)
+    result = list()
+    targets = re.split(',', CL.targets)
+    indc = indices[0]
+    dist = distances[0]
+
+    for i in xrange(len(indc)):
+        result.append([targets[indc[i]],dist[i]])
+
+    sorted_nbrs = sorted(result,key=operator.itemgetter(1),reverse=False)
+    session.close()
+
+    return sorted_nbrs

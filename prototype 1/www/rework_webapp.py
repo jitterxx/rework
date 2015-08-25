@@ -82,14 +82,26 @@ class ShowObject():
         try:
             obj = rwObjects.get_by_uuid(uuid)[0]
         except Exception as e:
-            print e[0]
-            print e[1]
-            raise cherrypy.HTTPRedirect("/")
+            print e
+            return ShowError(str(e))
         else:
             obj_keys = obj.get_attrs()
             f = obj.get_fields()
             session_context = cherrypy.session.get('session_context')
             neighbors = G.neighbors(session_context['uuid'])
+
+            cases = dict()
+            nbrs = list()
+            if obj.__tablename__ == 'dynamic_object':
+                obj.clear_text()
+                nbrs = rwLearn.predict_neighbors(rwObjects.default_neighbors_classifier,\
+                                                                      [obj.__dict__['text_clear']])
+                print "nbrs : %s" % nbrs
+                for i in nbrs:
+                    case = rwObjects.get_by_uuid(i[0])[0]
+                    print "Кейс : %s (расстояние %s)" % (case.subject,i[1])
+                    cases[i[0]] = case
+
 
             print "session_context['menu'] : %s " % session_context['menu']
 
@@ -101,7 +113,7 @@ class ShowObject():
             session_context['menu'] = "show_object"
             return tmpl.render(obj=obj, keys=obj_keys,
                                session_context=session_context, all_f=f[0], view_f=f[1],
-                               neighbors=neighbors, for_classify=rwObjects.FOR_CLASSIFY)
+                               neighbors=neighbors, cases=cases, nbrs=nbrs)
 
 
 class SaveObject():

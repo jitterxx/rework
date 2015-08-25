@@ -17,6 +17,8 @@ import base64
 import pymongo
 import networkx as nx
 import matplotlib.pyplot as plt
+
+
 from matplotlib import rc
 rc('font',**{'family':'serif'})
 rc('text', usetex=True)
@@ -29,88 +31,61 @@ reload(sys)
 sys.setdefaultencoding("utf-8")
 
 session = rwObjects.Session()
-# m = rwObjects.get_email_message(session,['af3f1230-3f71-11e5-be81-f46d04d35cbd'])
-# obj = rwObjects.get_by_uuid('b1c4a3e2-3c58-11e5-b1af-f46d04d35cbd')[0]
+
+from sklearn.neighbors import NearestNeighbors
+from sklearn.decomposition import PCA
+
+# Данные для анализа
+msg1 = rwObjects.get_by_uuid('61779b3a-475a-11e5-8833-f46d04d35cbd')[0]
+msg1.clear_text()
+test_data = [msg1.__dict__['text_clear']]
+
+# Данные для обучения кластера
+# Получаем все кейсы
+resp = session.query(rwObjects.Case).all()
+train_data = []
+train_uuid = []
+vectorizer = rwLearn.TfidfVectorizer(tokenizer=rwLearn.tokenizer_3, max_features=200)
+pca = PCA()
+
+for case in resp:
+    c = rwObjects.get_text_from_html(case.query)
+    train_data.append(c)
+    train_uuid.append(case)
+
+x = vectorizer.fit_transform(train_data)
+print "Размеры : %s %s " % x.shape
+#x = pca.fit_transform(x.todense())
+#print "Размеры после PCA: %s %s " % x.shape
+X = x.todense()
+
+# Тренировка
+nbrs = NearestNeighbors(n_neighbors=3, algorithm='ball_tree').fit(X)
+
+# Готовим тестовые данные
+t = vectorizer.transform(test_data)
+#t = pca.transform(t.todense())
+T = t.todense()
 
 
+# Расчет расстояний
+distances, indices = nbrs.kneighbors(T)
+print "Индексы компонент : \n %s" % indices
+print "Расстояния : \n %s" % distances
 
-"""
-
-client = pymongo.MongoClient()
-db = client['test']
-emails = db.test
-
-#emails.drop()
-#msg = rwObjects.Message()
-#email_id = emails.insert_one({'name':'type'}).inserted_id
-
-#print type(str(email_id))
-#print str(email_id)
-
-#print db.collection_names()
-#print emails.find()
-
-for e in emails.find():
-    print e.keys()
-    print type(e['_id'])
-    do = rwObjects.DynamicObject()
-    e['obj_type'] = 'message'
-    s = do.write(session,e)
-    print s
-
-    #Создаем Reference на новый объект
-    ref = rwObjects.Reference(source_uuid=obj.uuid,
-                    source_type=obj.__tablename__,
-                    source_id=obj.id,
-                    target_uuid=do.uuid,
-                    target_type=do.__tablename__,
-                    target_id=do.id,
-                    link=1)
+for i in indices[0]:
+    print i
+    print train_uuid[i].subject
 
 
-    # Записываем объект
-    r_status = ref.create(session)
+#rwLearn.train_neighbors(session, rwObjects.default_neighbors_classifier)
 
-session.close()
-"""
+result = rwLearn.predict_neighbors(rwObjects.default_neighbors_classifier, test_data)
 
-session = rwObjects.Session()
+print "Самые похожие объекты :"
+for i in result:
+    obj = rwObjects.get_by_uuid(i[0])[0]
+    print "Кейс : %s (расстояние %s)" % (obj.subject,i[1])
 
-#text = rwObjects.get_by_uuid('b1b90f50-42b1-11e5-b537-f46d04d35cbd')[0]
-#print str(text.text_plain)
-
-
-#probe,Z = rwLearn.predict('ed38261a-41cb-11e5-aae5-f46d04d35cbd',[text.text_plain])
-
-#print 'Вероятности : %s' % probe
-#print 'UUID категори : %s' % Z
-
-## t = rwObjects.get_by_uuid('ed38261a-41cb-11e5-aae5-f46d04d35cbd')[0].targets
-#print t
-
-#rwLearn.autoclassify_all_notlinked_objects()
-
-#s = rwLearn.retrain_classifier(session,'ed38261a-41cb-11e5-aae5-f46d04d35cbd')
-#print s[0]
-#print s[1]
-
-#obj = rwObjects.get_by_uuid('536c5204-41c1-11e5-8564-f46d04d35cbd')[0]
-#obj.clear_text()
-#fd,fl= rwLearn.email_specfeatures(obj,{})
-
-#for i in fl:
-#    print i
-
-
-#print len(fd.keys())
-#print len(fl)
-
-#print obj.__dict__['text_clear']
-
-
-custom = rwObjects.get_by_uuid('374e6f1e-42b4-11e5-9881-f46d04d35cbd')[0]
-print custom.__dict__['custom_category']
-print custom.__dict__['system_category']
-print custom.__dict__['custom_category'][0].name
 
 session.close()
