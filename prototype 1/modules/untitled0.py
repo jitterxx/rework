@@ -108,8 +108,9 @@ session = rwObjects.Session()
 #print obj.__dict__['text_clear']
 
 
-custom = rwObjects.get_ktree_custom(session)
-print custom.keys()
-print type(custom)
+custom = rwObjects.get_by_uuid('374e6f1e-42b4-11e5-9881-f46d04d35cbd')[0]
+print custom.__dict__['custom_category']
+print custom.__dict__['system_category']
+print custom.__dict__['custom_category'][0].name
 
 session.close()

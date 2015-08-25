@@ -100,8 +100,8 @@ class ShowObject():
 
             session_context['menu'] = "show_object"
             return tmpl.render(obj=obj, keys=obj_keys,
-                               session_context=session_context,
-                               all_f=f[0], view_f=f[1], neighbors=neighbors)
+                               session_context=session_context, all_f=f[0], view_f=f[1],
+                               neighbors=neighbors, for_classify=rwObjects.FOR_CLASSIFY)
 
 
 class SaveObject():
@@ -987,6 +987,7 @@ class Case(object):
         else:
             pass
 
+        # Создаем новый Case
         try:
             status, obj = rwObjects.create_new_object(session, "cases", data, source)
         except Exception as e:
@@ -995,6 +996,37 @@ class Case(object):
         else:
             uuid = str(obj.uuid)
             print status
+
+        # Линкуем новый Case с объектом из которго он был создан
+        try:
+            status = rwObjects.link_objects(session,obj.uuid,data['do_object_uuid'])
+        except Exception as e:
+            return ShowError("""Case.create_new. Операция: rwObjects.link_objects(session,obj.uuid,
+                    data['do_object_uuid']). Ошибка : %s""" % str(e))
+        else:
+            print status[0]
+            print status[1]
+            if not status[0]:
+                return ShowError(str(status[0]) + status[1])
+
+        # Линкуем новый Case с узлами Навигатора Знаний коорые были в связаны с объектм родителем
+        do_obj = rwObjects.get_by_uuid(data['do_object_uuid'])[0]
+        print do_obj.NAME
+        print do_obj.__dict__['custom_category']
+        for cat in do_obj.__dict__['custom_category']:
+            print cat.name
+            try:
+                status = rwObjects.link_objects(session,cat.uuid,obj.uuid)
+            except Exception as e:
+                return ShowError("""Case.create_new. Операция: rwObjects.link_objects(session,obj.uuid,cat).
+                            Ошибка : %s""" % str(e))
+            else:
+                print status[0]
+                print status[1]
+                if not status[0]:
+                    return ShowError(str(status[0]) + status[1])
+
+
 
         session.close()
         raise cherrypy.HTTPRedirect("/object/%s/addlink" % uuid)

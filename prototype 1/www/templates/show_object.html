@@ -3,7 +3,7 @@
 <%block name="title">
     <title>Профиль объекта</title>
     <link href="/static/css/dashboard.css" rel="stylesheet">
-
+    <script src="/static/ckeditor/ckeditor.js"></script>
 </%block>
 
     <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
@@ -12,6 +12,45 @@
             <table class="table table-striped">
               <tbody>
                 % if obj.__dict__['uuid'] in neighbors or 'admin' in session_context['groups']:
+                    %if obj.__tablename__ == 'cases':
+                        % for key in view_f:
+                            % if key == 'query':
+                                <tr>
+                                 <td> ${all_f[key]}</td>
+                                 <td>
+                                     <textarea disabled name="${key}">
+                                         ${obj.__dict__[key]}
+                                     </textarea>
+                                     <script>
+                                     // Replace the <textarea id="editor1"> with a CKEditor
+                                     // instance, using default configuration.
+                                     CKEDITOR.replace("${key}");
+                                     </script>
+
+                                 </td>
+                                </tr>
+                            % elif key == 'solve':
+                                <tr>
+                                 <td> ${all_f[key]}</td>
+                                 <td>
+                                     <textarea disabled name="${key}">
+                                         ${obj.__dict__[key]}
+                                     </textarea>
+                                     <script>
+                                     // Replace the <textarea id="editor1"> with a CKEditor
+                                     // instance, using default configuration.
+                                     CKEDITOR.replace("${key}");
+                                     </script>
+                                 </td>
+                                </tr>
+                            % else:
+                                <tr>
+                                 <td> ${all_f[key]}</td>
+                                 <td> ${obj.__dict__[key]}</td>
+                                </tr>
+                            % endif
+                        % endfor
+                    % else:
                         % for key in view_f:
                           <tr>
                               <td>${all_f[key]}</td>
@@ -30,6 +69,7 @@
                               </td>
                           </tr>
                         % endfor
+                    % endif
                 %else:
                     <div class="alert alert-warning" role="alert">
                         <p>Недостаточно прав.</p>
@@ -40,7 +80,8 @@
                 	 <td><a href="${session_context['back_ref']}">Назад</a></td>
                 	 <td><a href="edit">Редактировать</a></td>
                      <td>
-                         % if 'admin' in session_context['groups'] or 'expert' in session_context['groups']:
+                         % if ('admin' in session_context['groups'] or 'expert' in session_context['groups']) and \
+                            obj.__tablename__ == 'dynamic_object':
                          <a href="/cases/add?uuid=${obj.uuid}">Создать кейс</a>
                          % endif
                      </td>

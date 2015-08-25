@@ -969,10 +969,12 @@ class Case(Base, rw_parent):
                             'algorithm': 'Алгоритм'}
         self.VIEW_FIELDS = ['subject', 'query', 'solve', 'algorithm']
         self.ADD_FIELDS = ['subject', 'query', 'solve', 'algorithm']
-        self.SHORT_VIEW_FIELDS = ['subject', 'query']
-        cats = get_ktree_for_object(session)
-        self.__dict__['custom_category'] = cats[0]
-        self.__dict__['system_category'] = cats[1]
+        self.SHORT_VIEW_FIELDS = ['subject']
+        cats = get_ktree_for_object(session,self.uuid)
+        print cats[0]
+        print cats[1]
+        self.__dict__['custom_category'] = cats[0].values()
+        self.__dict__['system_category'] = cats[1].values()
         if session_flag:
             session.close()
 
@@ -2062,6 +2064,7 @@ def link_objects(session, source_uuid, target_uuid):
     :param session: Session ORM. Если не передаеться, то поставить None.
     :param source: UUID исходного объекта.
     :param target: UUID целевого объекта.
+
     :return: список со статусом операции и комментариями.
     """
 

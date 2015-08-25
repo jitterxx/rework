@@ -13,6 +13,7 @@
             <table class="table table-striped">
               <tbody>
                 <form method="post" action="create_new">
+                    <input hidden value="${do_object.uuid}" name="do_object_uuid" />
                 % for key in create_f:
                     % if key == 'query':
                         <tr>
