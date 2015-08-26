@@ -22,7 +22,7 @@ import pymorphy2
 from time import time
 import pandas as pd
 import chardet
-from email import utils
+from prototype1_tools import *
 
 
 from sklearn.feature_extraction.text import HashingVectorizer
@@ -256,24 +256,6 @@ def email_specfeatures(entry,specwords):
             fl.remove(w)
 
     return fd,fl
-
-
-def extract_addresses(field):
-    """
-    :param field: Строка из которой надо извлечь имена и адреса. ФОрмат строки: ФИО_пробел_<email>,
-    ФИО_пробел_<email>,... .
-    :return addresses: Возвращает словарь в формате: key - email: value - ФИО или email, если ничего не было указано.
-    """
-    addresses = dict()
-    a = re.split(",",str(field))
-    for each in a:
-        name, addr = utils.parseaddr(each)
-        if name == "":
-            addresses[addr] = addr
-        else:
-            addresses[addr] = name
-
-    return addresses
 
 
 def init_classifier(session,clf_obj,clf_type):

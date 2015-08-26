@@ -31,7 +31,7 @@ reload(sys)
 sys.setdefaultencoding("utf-8")
 
 session = rwObjects.Session()
-
+"""
 from sklearn.neighbors import NearestNeighbors
 from sklearn.decomposition import PCA
 
@@ -90,6 +90,49 @@ print "Самые похожие объекты :"
 for i in result:
     obj = rwObjects.get_by_uuid(i[0])[0]
     print "Кейс : %s (расстояние %s)" % (obj.subject,i[1])
+"""
 
+
+
+obj = rwObjects.get_by_uuid('39ed6a36-44cb-11e5-a8fd-f46d04d35cbd')[0]
+obj.clear_text()
+case = rwObjects.get_by_uuid('402faaee-4b15-11e5-92a4-f46d04d35cbd')[0]
+
+from prototype1_tools import extract_addresses
+import urllib
+from bs4 import BeautifulSoup
+
+email_to = "mailto:"
+params = {'subject':'','references':'','body':'','cc':''}
+param_to = ''
+pre_body = ''
+
+for adr,names in extract_addresses(obj.__dict__['from']).iteritems():
+    param_to += adr + ","
+
+params['subject'] = "Re: " + obj.__dict__['subject']
+params['references'] = obj.__dict__['message-id'].replace(" ","")
+
+soup = BeautifulSoup(obj.__dict__['raw_text_plain'], from_encoding="utf8")
+body = str(soup.find('body').contents)
+body = ""
+
+pre_body = "<pre>" + body + "</pre>"
+
+params['body'] = """<html>
+                    <head><meta http-equiv="content-type" content="text/html; charset=utf-8"></head>
+                    <body text="#000000" bgcolor="#FFFFFF">""" + str(case.solve) + pre_body + "</body></html>"
+
+
+email_to += param_to + "?"
+
+for k in params.keys():
+    print k
+    print params[k]
+    print urllib.quote(params[k])
+    email_to += "&" + k + "=" + urllib.quote(params[k])
+
+
+print email_to
 
 session.close()

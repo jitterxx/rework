@@ -8,16 +8,13 @@
 
     <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
         <h2 class="sub-header">${obj.NAME}</h2>
-        % if obj.__tablename__ == 'dynamic_object':
+        % if obj.__tablename__ == 'dynamic_object' and nbrs:
             <p>Кейсы:
                 % for i in nbrs:
-                    % if i[1] < 1.2:
-                        <a href="/object/${cases[i[0]].uuid}">
-                            <span class="label label-warning">
-                                ${cases[i[0]].subject}
-                            </span>
-                        </a>
-                    % endif
+                    <button type="button" class="btn btn-warning btn-xs" data-toggle="modal"
+                            data-target="#${cases[i[0]].uuid}">
+                        ${cases[i[0]].subject}
+                    </button>
                 % endfor
             </p>
         % endif
@@ -76,6 +73,13 @@
                                     % for group in obj.__dict__[key]:
                                         ${obj.ACCESS_GROUPS[group]}<br>
                                     % endfor
+                                 % elif key == 'raw_text_html':
+                                  <%
+                                    lines_count = len(str(obj.__dict__[key]).splitlines())
+                                  %>
+                                  <iframe width=80% onload="this.style.height=this.contentDocument.body.scrollHeight +'px';"
+                                          scrolling=auto frameborder=0 src="frame">
+                                 </iframe>
                                  % else:
                                     ${obj.__dict__[key]}
                                  % endif
@@ -102,6 +106,74 @@
               </tbody>
             </table>
         </div>
+
+        % if obj.__tablename__ == 'dynamic_object' and nbrs:
+            % for i in nbrs:
+
+            <!-- Modal -->
+            <div class="modal" id="${cases[i[0]].uuid}" tabindex="-1" role="dialog"
+                 aria-labelledby="myModalLabel">
+              <div class="modal-dialog modal-lg" role="document">
+                <div class="modal-content ">
+                  <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title" id="myModalLabel">Кейс ${cases[i[0]].subject}</h4>
+                  </div>
+                  <div class="modal-body">
+
+                    % for key in cases[i[0]].VIEW_FIELDS:
+                        % if key in ['query', 'solve']:
+                          <div class="row">
+                              <div class="col-xs-12 col-sm-12 col-md-12 col-lg-12">
+                                  <h4>
+                                      ${cases[i[0]].ALL_FIELDS[key]}
+                                  </h4>
+                                  <p>
+                                     <textarea disabled id="${cases[i[0]].uuid}_${key}">
+                                         ${cases[i[0]].__dict__[key]}
+                                     </textarea>
+                                  </p>
+                                     <script>
+                                     // Replace the <textarea id="editor1"> with a CKEditor
+                                     // instance, using default configuration.
+                                     CKEDITOR.replace("${cases[i[0]].uuid}_${key}");
+                                     </script>
+                              </div>
+                          </div>
+                        % else:
+                          <div class="row">
+                              <div class="col-xs-12 col-md-12 col-lg-12">
+                                  <h4>
+                                      ${cases[i[0]].ALL_FIELDS[key]}
+                                  </h4>
+                                  <p>
+                                      ${cases[i[0]].__dict__[key]}
+                                  </p>
+
+                              </div>
+                          </div>
+                        % endif
+
+                    % endfor
+                  </div>
+                  <div class="modal-footer">
+                      <a href="/case/${cases[i[0]].uuid}/use?for_uuid=${obj.uuid}">
+                          <button type="button" class="btn btn-primary">Использовать</button>
+                      </a>
+                      <%
+
+                      %>
+                      <a href="${email_to}">
+                          <button type="button" class="btn btn-primary">Использовать локально</button>
+                      </a>
+                      <button type="button" class="btn btn-default" data-dismiss="modal">Закрыть</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            % endfor
+        % endif
 
     </div>
 

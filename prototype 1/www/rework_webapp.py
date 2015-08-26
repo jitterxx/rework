@@ -94,13 +94,38 @@ class ShowObject():
             nbrs = list()
             if obj.__tablename__ == 'dynamic_object':
                 obj.clear_text()
-                nbrs = rwLearn.predict_neighbors(rwObjects.default_neighbors_classifier,\
+                nbr = rwLearn.predict_neighbors(rwObjects.default_neighbors_classifier,\
                                                                       [obj.__dict__['text_clear']])
-                print "nbrs : %s" % nbrs
-                for i in nbrs:
+                print "nbrs : %s" % nbr
+                for i in nbr:
                     case = rwObjects.get_by_uuid(i[0])[0]
                     print "Кейс : %s (расстояние %s)" % (case.subject,i[1])
-                    cases[i[0]] = case
+                    if i[1] < 0.9998:
+                        cases[i[0]] = case
+                        nbrs.append(i)
+
+                        from prototype1_tools import extract_addresses
+                        import urllib
+
+                        email_to = "mailto:"
+                        params = {'subject':'','references':'','body':'','cc':''}
+                        param_to = ''
+
+                        for adr,names in extract_addresses(obj.__dict__['from']).iteritems():
+                            param_to += adr + ","
+
+                        params['subject'] = "Re: " + obj.__dict__['subject']
+                        params['references'] = obj.__dict__['message-id']
+                        #params['body'] = cases[i[0]].solve
+                        #params['body'] += "<pre>" + obj.__dict__['raw_text_html'] + "</pre>"
+
+                        email_to += param_to + "?"\
+                        #+ urllib.urlencode(params)
+                        for k in params.keys():
+                            email_to += "&" + k + "=" + params[k]
+
+                        print email_to
+                        print params
 
 
             print "session_context['menu'] : %s " % session_context['menu']
@@ -113,7 +138,22 @@ class ShowObject():
             session_context['menu'] = "show_object"
             return tmpl.render(obj=obj, keys=obj_keys,
                                session_context=session_context, all_f=f[0], view_f=f[1],
-                               neighbors=neighbors, cases=cases, nbrs=nbrs)
+                               neighbors=neighbors, cases=cases, nbrs=nbrs, email_to=email_to)
+
+    @cherrypy.expose
+    def frame(self, uuid):
+        print "Отдаем данные во фрейм..."
+        try:
+            obj = rwObjects.get_by_uuid(uuid)[0]
+        except Exception as e:
+            print e
+            return ShowError(str(e))
+        else:
+            pass
+        if obj.__tablename__ == 'dynamic_object' and obj.__dict__['raw_text_html']:
+            return obj.__dict__['raw_text_html']
+        else:
+            return ShowError("Frame не может быть вызван для других объектов.")
 
 
 class SaveObject():
@@ -836,6 +876,10 @@ class Any_object(object):
             cherrypy.request.params['uuid'] = vpath[0]
             print "Редактируем объект : ", vpath
             return EditObject()
+        elif len(vpath) == 2 and vpath[1] == 'frame':
+            cherrypy.request.params['uuid'] = vpath[0]
+            print "Выводим данные объекта во фрейм : ", vpath
+            return ShowObject()
         elif len(vpath) == 2 and vpath[1] == 'save':
             print "Сохраняем объект : ", vpath
             cherrypy.request.params['uuid'] = vpath[0]
