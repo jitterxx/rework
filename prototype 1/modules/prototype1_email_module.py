@@ -20,8 +20,6 @@ import datetime
 import json
 import re
 
-
-
 import sys
 reload(sys)
 sys.setdefaultencoding("utf-8")
@@ -313,11 +311,47 @@ def get_email_messages():
     return status
 """
 
-def test():
-    pass
-    #print get_email_messages()
 
-    
+def send_email(data):
+    """
+    Функция отправки сообщения.
 
-    
-    
+    :param data: набор значений для формирования письма
+    :return: статус отправки
+    """
+
+    from smtplib import SMTP_SSL
+    import email
+
+    address = data['from']
+    server = "smtp." + re.split('\.',data['server'],1)[1]
+
+    msg = email.MIMEMultipart.MIMEMultipart()
+    msg['From'] = email.header.Header(data['from'],'utf8')
+    msg['To'] = email.header.Header(data['to'],'utf8')
+    msg['Subject'] = email.header.Header(data['subject'],'utf8')
+    try:
+        data['references']
+    except:
+        pass
+    else:
+        msg['References'] = email.header.Header(data['references'],'utf8')
+
+    msg.preamble = "This is a multi-part message in MIME format."
+    msg.epilogue = "End of message"
+    msgAlternative = email.MIMEMultipart.MIMEMultipart('alternative')
+    msg.attach(msgAlternative)
+    msgText = email.MIMEText.MIMEText('Отправка писем с помощью Python',"","UTF-8")
+    msgAlternative.attach(msgText)
+
+    to_attach = email.MIMEText.MIMEText(data['body'],"html","UTF-8")
+    msgAlternative.attach(to_attach)
+
+
+    # Send mail
+    smtp = SMTP_SSL()
+    smtp.connect(server)
+    smtp.login(address, data['password'])
+    smtp.sendmail(address, data['to'], msg.as_string())
+    smtp.quit()
+

@@ -157,15 +157,9 @@
                     % endfor
                   </div>
                   <div class="modal-footer">
-                      <a href="/case/${cases[i[0]].uuid}/use?for_uuid=${obj.uuid}">
-                          <button type="button" class="btn btn-primary">Использовать</button>
-                      </a>
-                      <%
-
-                      %>
-                      <a href="${email_to}">
-                          <button type="button" class="btn btn-primary">Использовать локально</button>
-                      </a>
+                              <a class="btn btn-primary" href="/cases/${cases[i[0]].uuid}/use?for_uuid=${obj.uuid}">
+                                  Использовать
+                              </a>
                       <button type="button" class="btn btn-default" data-dismiss="modal">Закрыть</button>
                   </div>
                 </div>

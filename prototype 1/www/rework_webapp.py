@@ -14,7 +14,9 @@ sys.path.append('/home/sergey/test/rework/prototype 1/modules')
 import prototype1_objects_and_orm_mappings as rwObjects
 import prototype1_queue_module as rwQueue
 import prototype1_type_classifiers as rwLearn
+import prototype1_email_module as rwEmail
 import cherrypy
+from bs4 import BeautifulSoup
 from auth import AuthController, require, member_of, name_is
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -92,6 +94,7 @@ class ShowObject():
 
             cases = dict()
             nbrs = list()
+
             if obj.__tablename__ == 'dynamic_object':
                 obj.clear_text()
                 nbr = rwLearn.predict_neighbors(rwObjects.default_neighbors_classifier,\
@@ -104,30 +107,6 @@ class ShowObject():
                         cases[i[0]] = case
                         nbrs.append(i)
 
-                        from prototype1_tools import extract_addresses
-                        import urllib
-
-                        email_to = "mailto:"
-                        params = {'subject':'','references':'','body':'','cc':''}
-                        param_to = ''
-
-                        for adr,names in extract_addresses(obj.__dict__['from']).iteritems():
-                            param_to += adr + ","
-
-                        params['subject'] = "Re: " + obj.__dict__['subject']
-                        params['references'] = obj.__dict__['message-id']
-                        #params['body'] = cases[i[0]].solve
-                        #params['body'] += "<pre>" + obj.__dict__['raw_text_html'] + "</pre>"
-
-                        email_to += param_to + "?"\
-                        #+ urllib.urlencode(params)
-                        for k in params.keys():
-                            email_to += "&" + k + "=" + params[k]
-
-                        print email_to
-                        print params
-
-
             print "session_context['menu'] : %s " % session_context['menu']
 
             if session_context['menu'] in ['accounts', 'employee']:
@@ -138,7 +117,7 @@ class ShowObject():
             session_context['menu'] = "show_object"
             return tmpl.render(obj=obj, keys=obj_keys,
                                session_context=session_context, all_f=f[0], view_f=f[1],
-                               neighbors=neighbors, cases=cases, nbrs=nbrs, email_to=email_to)
+                               neighbors=neighbors, cases=cases, nbrs=nbrs)
 
     @cherrypy.expose
     def frame(self, uuid):
@@ -995,7 +974,10 @@ class Case(object):
             cherrypy.request.params['object_uuid'] = vpath[0]
             print "Сохраняем связь..."
             return LinkObject()
-
+        elif len(vpath) == 2 and vpath[1] == 'use':
+            cherrypy.request.params['case_uuid'] = vpath[0]
+            print "Используем кейс..."
+            return self
         elif len(vpath) == 0:
             print "Вывод переадресации : ", vpath
             return self
@@ -1025,8 +1007,66 @@ class Case(object):
                            do_object=do_object)
 
     @cherrypy.expose
-    def edit(self):
-        return ShowError("Редактирование кейсов")
+    def use(self,case_uuid, for_uuid):
+        tmpl = lookup.get_template("use_case.html")
+        session_context = cherrypy.session.get('session_context')
+        session = rwObjects.Session()
+        try:
+            obj = rwObjects.get_by_uuid(for_uuid)[0]
+            case = rwObjects.get_by_uuid(case_uuid)[0]
+        except Exception as e:
+            return ShowError(str(e))
+        else:
+            pass
+
+        accounts = dict()
+        obj_nbrs = G.neighbors(for_uuid)
+        user_nbrs = G.neighbors(session_context['uuid'])
+
+        for i in user_nbrs:
+            node = G.graph.node[i]['obj']
+            if node.__class__.__name__ == 'Account':
+                print "Аккаунт объекта: %s" % node.login
+                accounts[node.uuid] = node
+
+        for i in obj_nbrs:
+            node = G.graph.node[i]['obj']
+            if node.__class__.__name__ == 'Account':
+                print "Аккаунт пользователя: %s" % node.login
+                obj_account = node
+
+        soup = BeautifulSoup(obj.__dict__['raw_text_plain'], from_encoding="utf8")
+        body_old = str(soup.find('body').contents[0])
+
+        session.close()
+        return tmpl.render(obj=obj, case=case, session_context=session_context, body_old=body_old,
+                           accounts=accounts, obj_account=obj_account)
+
+    @cherrypy.expose
+    def send(self, **kwargs):
+        data = cherrypy.request.params
+        session_context = cherrypy.session.get('session_context')
+        print "Данные запроса: %s" % data
+        email_data = dict()
+        try:
+            account = rwObjects.get_by_uuid(data['account'])[0]
+        except Exception as e:
+            return ShowError(str(e))
+        else:
+            pass
+        email_data['from'] = account.login
+        email_data['server'] = account.server
+        email_data['password'] = account.password
+        email_data['to'] = data['to']
+        email_data['subject'] = data['subject']
+        email_data['cc'] = data['cc']
+        email_data['body'] = data['body']
+
+        status = rwEmail.send_email(email_data)
+
+        raise cherrypy.HTTPRedirect("/cases/%s/use?for_uuid=%s" % (data['case_uuid'],data['obj_uuid']))
+
+
 
     @cherrypy.expose
     def create_new(self, **kwargs):
@@ -1082,8 +1122,6 @@ class Case(object):
                 print status[1]
                 if not status[0]:
                     return ShowError(str(status[0]) + status[1])
-
-
 
         session.close()
         raise cherrypy.HTTPRedirect("/object/%s/addlink" % uuid)

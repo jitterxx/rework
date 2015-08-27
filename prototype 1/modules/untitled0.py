@@ -114,25 +114,24 @@ params['subject'] = "Re: " + obj.__dict__['subject']
 params['references'] = obj.__dict__['message-id'].replace(" ","")
 
 soup = BeautifulSoup(obj.__dict__['raw_text_plain'], from_encoding="utf8")
-body = str(soup.find('body').contents)
+body = str(soup.find('body').get_text())
 body = ""
 
-pre_body = "<pre>" + body + "</pre>"
+pre_body = "\n<blockquote>" + body + "</blockquote>"
 
-params['body'] = """<html>
-                    <head><meta http-equiv="content-type" content="text/html; charset=utf-8"></head>
-                    <body text="#000000" bgcolor="#FFFFFF">""" + str(case.solve) + pre_body + "</body></html>"
+params['body'] = """ """ + str(case.solve) + pre_body + " "
 
 
 email_to += param_to + "?"
 
 for k in params.keys():
     print k
-    print params[k]
-    print urllib.quote(params[k])
-    email_to += "&" + k + "=" + urllib.quote(params[k])
+    #print params[k]
+    #email_to += "&" + k + "=" + urllib.quote(params[k])
 
 
-print email_to
+print email_to + urllib.urlencode(params).replace("+","%20").replace("%0A","%0D%0A") + \
+      urllib.quote("<blockquote></blockquote>")
+
 
 session.close()

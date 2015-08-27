@@ -1,0 +1,89 @@
+<%inherit file="page_structure.html"/>
+
+<%block name="title">
+    <title>Использование кейса</title>
+    <link href="/static/css/dashboard.css" rel="stylesheet">
+    <script src="/static/ckeditor/ckeditor.js"></script>
+</%block>
+
+    <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
+        <h2 class="sub-header">${case.NAME}</h2>
+        <form class="form-horizontal" method="post" action="/cases/send">
+          <div class="form-group">
+            <label for="from_email" class="col-sm-2 control-label">Отправить через</label>
+            <div class="col-sm-6">
+                <select class="form-control" name="account" id="from_email">
+                    % if obj_account.uuid not in accounts.keys() and 'admin' not in session_context['groups']:
+                        % for key in accounts.keys():
+                            <option value="${key}">${accounts[key].login}</option>
+                        % endfor
+                        <p class="text-danger">Аккаунт через который было получено сообщение вам недоступен.</p>
+                    % else:
+                        <option value="${obj_account.uuid}">${obj_account.login}</option>
+                    % endif
+                </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="to_email" class="col-sm-2 control-label">Кому</label>
+            <div class="col-sm-6">
+              <input type="text" class="form-control" name="to" id="to_email" value="${obj.__dict__['from']}">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="cc_email" class="col-sm-2 control-label">Копия</label>
+            <div class="col-sm-6">
+              <input type="email" class="form-control" name="cc" id="cc_email" placeholder="Email">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="subject_email" class="col-sm-2 control-label">Тема</label>
+            <div class="col-sm-6">
+              <input type="text" class="form-control" name="subject" id="subject_email"
+                     value="Re: ${obj.__dict__['subject']}">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="body_email" class="col-sm-2 control-label">Текст</label>
+            <div class="col-sm-8">
+                <textarea class="form-control" name="body" id="body_email">
+                    ${case.solve}
+                    <blockquote>${body_old}</blockquote>
+                </textarea>
+                 <script>
+                 // Replace the <textarea id="editor1"> with a CKEditor
+                 // instance, using default configuration.
+                 CKEDITOR.replace("body_email");
+                 </script>
+            </div>
+          </div>
+          <div class="form-group">
+              <label for="send_option" class="col-sm-2 control-label">Опции отправки</label>
+            <div class="col-sm-10">
+                <div id="send_option">
+                <div class="radio">
+                  <label>
+                    <input type="radio" name="send_options" id="optionsRadios1" value="now" checked>
+                    Отправить сразу
+                  </label>
+                </div>
+                <div class="radio">
+                  <label>
+                    <input type="radio" name="send_options" id="optionsRadios2" value="todraft">
+                    Сохранить в папке Черновики
+                  </label>
+                </div>
+                    </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="col-sm-offset-2 col-sm-10">
+              <button type="submit" class="btn btn-default">Отправить</button>
+            </div>
+          </div>
+            <input type="hidden" name="references" value="${obj.__dict__['message-id']}">
+            <input type="hidden" name="case_uuid" value="${case.uuid}">
+            <input type="hidden" name="obj_uuid" value="${obj.uuid}">
+        </form>
+    </div>
+
