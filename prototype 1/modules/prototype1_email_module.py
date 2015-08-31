@@ -13,12 +13,16 @@ Messages типа email.
 # coding: utf8
 
 import imaplib
-from email import message_from_string, header, utils
 from bs4 import BeautifulSoup
 import chardet
 import datetime
+import time
 import json
 import re
+from smtplib import SMTP_SSL
+import email
+from prototype1_tools import *
+import prototype1_objects_and_orm_mappings as rwObjects
 
 import sys
 reload(sys)
@@ -82,7 +86,7 @@ def get_emails(account):
     
     M.login(login,password)
     s = {}
-    
+
     for cur_dir in dirs.keys():
         if debug:
             print "Проверяю папку: ",dirs[cur_dir]
@@ -113,7 +117,7 @@ def get_emails(account):
             if num in unseen_num:
                 M.store(num, '-FLAGS', '\Seen')
         
-            msg = message_from_string(data[0][1])
+            msg = email.message_from_string(data[0][1])
 
             
             msg_data = {}
@@ -134,7 +138,7 @@ def get_emails(account):
                 broken = False
 
                 try:            
-                    for h in header.decode_header(m):
+                    for h in email.header.decode_header(m):
                         
                         k = ' '.join((k,h[0]))
                         if not (h[1] == None):
@@ -229,7 +233,6 @@ def get_emails(account):
 
                 s[num] = dict(zip(msg_low.keys(), msg_low.values()))
 
-    
     M.close()
     M.logout()
 
@@ -312,46 +315,146 @@ def get_email_messages():
 """
 
 
-def send_email(data):
+def send_message_smtp(account, to_field, msg):
     """
     Функция отправки сообщения.
 
-    :param data: набор значений для формирования письма
+    :param account: содежит объект класса Account для отправки письма
+    :param to_field: адреса на которые будет произведена отправка сообщения
+    :param msg: сформированное сообщение. Объект класса email.MIMEMultipart.MIMEMultipart
+
     :return: статус отправки
     """
 
-    from smtplib import SMTP_SSL
-    import email
+    server = "smtp." + re.split('\.',account.server,1)[1]
 
-    address = data['from']
-    server = "smtp." + re.split('\.',data['server'],1)[1]
-
-    msg = email.MIMEMultipart.MIMEMultipart()
-    msg['From'] = email.header.Header(data['from'],'utf8')
-    msg['To'] = email.header.Header(data['to'],'utf8')
-    msg['Subject'] = email.header.Header(data['subject'],'utf8')
+    # Send mail
     try:
-        data['references']
-    except:
-        pass
+        smtp = SMTP_SSL()
+        smtp.connect(server)
+        smtp.login(account.login, account.password)
+        smtp.sendmail(account.login, to_field, msg.as_string())
+        smtp.quit()
+    except Exception as e:
+        return [False,str(e)]
     else:
+        return [True,"OK"]
+
+
+def save_message_to(msg, save_dir, account):
+    """
+    Функция сохраняет переданное сформированное сообщение в указанный каталог аккаунта.
+
+    :param msg: сформированное сообщение email
+    :param save_dir: каталог для сохранения сообщения
+    :param account: объект класса Account для сохранения сообщения
+    :return: статус операции
+    """
+
+    dirs = json.loads(account.dirs)
+    try:
+        M = imaplib.IMAP4_SSL(account.server)
+    except Exception as e:
+        print 'Connection problem! %s ' % str(e)
+        return [False,str(e)]
+    try:
+        M.login(account.login, account.password)
+    except Exception as e:
+        print 'Auth problem!%s ' % str(e)
+        return [False,str(e)]
+    else:
+        try:
+            M.append(dirs[save_dir], "", imaplib.Time2Internaldate(time.time()), msg.as_string())
+        except Exception as e:
+            print 'Message save problem!%s ' % str(e)
+            return [False,str(e)]
+
+        M.logout()
+        print "Сохраняем в %s" % save_dir
+
+    return [True,"OK"]
+
+
+def outgoing_message(data):
+    """
+    Функция проверяет правильность заполнения всех зоголовков и формирует сообщение.
+    В зависимости от указанной опции, отправляет по smtp получателю и записыает в папку sent аккаунта или записывает
+    сообщение в папку draft.
+
+    :param data: данные для формирования письма.
+    :return:
+    """
+
+    try:
+        account = rwObjects.get_by_uuid(data['account'])[0]
+    except Exception as e:
+        return [False,"Ошибка при получении данных аккаунта. Ошибка: %s" % str(e)]
+    else:
+        pass
+
+    to_field = ""
+    msg = email.MIMEMultipart.MIMEMultipart()
+    msg['Message-ID'] = email.Utils.make_msgid()
+    data['from'] = account.login
+    from email.header import Header
+
+    # Проверка параметров полученных при написании сообщения
+    # Кодирование заголовков
+    try:
+        for f in ['to', 'cc', 'from']:
+            addrs = extract_addresses(data[f])
+            s = list()
+            print "Поле %s" % f
+            for addr in addrs.keys():
+                if addr or f == 'cc':
+                    s.append(email.utils.formataddr((str(email.header.make_header([(addrs[addr],'utf8')])), addr)))
+                else:
+                    return [False, "rwEmail.outgoing_message. Операция extract_addresses. Пустой параметр: %s"\
+                            % str(f)]
+                print ", ".join(s)
+            data[f] = ", ".join(s)
+            if f == 'to':
+                to_field = ", ".join(addrs.keys())
+    except Exception as e:
+        return [False, "rwEmail.outgoing_message. Операция проверки параметров. Ошибка: %s" % str(e)]
+
+    msg['From'] = data['from']
+    msg['To'] = data['to']
+    msg['Cc'] = data['cc']
+    msg['Subject'] = email.header.Header(data['subject'], 'utf8')
+
+    if 'references' in data.keys():
         msg['References'] = email.header.Header(data['references'],'utf8')
+
+    data_html = data['body']
+    data_plain = ''
 
     msg.preamble = "This is a multi-part message in MIME format."
     msg.epilogue = "End of message"
     msgAlternative = email.MIMEMultipart.MIMEMultipart('alternative')
     msg.attach(msgAlternative)
-    msgText = email.MIMEText.MIMEText('Отправка писем с помощью Python',"","UTF-8")
+    msgText = email.MIMEText.MIMEText(data_plain, "plain", "UTF-8")
     msgAlternative.attach(msgText)
-
-    to_attach = email.MIMEText.MIMEText(data['body'],"html","UTF-8")
+    to_attach = email.MIMEText.MIMEText(data_html, "html", "UTF-8")
     msgAlternative.attach(to_attach)
 
+    print msg.as_string()
 
-    # Send mail
-    smtp = SMTP_SSL()
-    smtp.connect(server)
-    smtp.login(address, data['password'])
-    smtp.sendmail(address, data['to'], msg.as_string())
-    smtp.quit()
+    if data['send_options'] == 'to_drafts':
+        # Сохраняем в Черновики
+        status = save_message_to(msg, "drafts", account)
+        return status
+
+    elif data['send_options'] == 'now':
+        # Отправляем и сохраняем в Отправленные
+        status_save = save_message_to(msg, "sent", account)
+        if not status_save[0]:
+            return status_save
+        status_send = send_message_smtp(account, to_field, msg)
+        if not status_send[0]:
+            return status_send
+
+    return [True,"OK"]
+
+
 

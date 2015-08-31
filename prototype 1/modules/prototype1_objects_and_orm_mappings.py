@@ -701,8 +701,10 @@ class Account(Base, rw_parent):
     """
 
     __tablename__ = 'accounts'
-    DIRS = {'Yandex': '{"inbox": "INBOX", "sent": "&BB4EQgQ,BEAEMAQyBDsENQQ9BD0ESwQ1-"}',
-            'Gmail': '{"inbox":"INBOX","sent":"[Gmail]/&BB4EQgQ,BEAEMAQyBDsENQQ9BD0ESwQ1-"}'}
+    DIRS = {'Yandex': '{"inbox": "INBOX", "sent": "&BB4EQgQ,BEAEMAQyBDsENQQ9BD0ESwQ1-", "drafts": '
+                      '"&BCcENQRABD0EPgQyBDgEOgQ4-"}',
+            'Gmail': '{"inbox":"INBOX","sent":"[Gmail]/&BB4EQgQ,BEAEMAQyBDsENQQ9BD0ESwQ1-", "drafts": "['
+                     'Gmail]/&BCcENQRABD0EPgQyBDgEOgQ4-"}'}
 
     STATUS = {0: 'Используется', 1: 'Не используется', 2: 'Архивный'}
 

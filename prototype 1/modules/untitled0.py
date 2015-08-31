@@ -97,41 +97,21 @@ for i in result:
 obj = rwObjects.get_by_uuid('39ed6a36-44cb-11e5-a8fd-f46d04d35cbd')[0]
 obj.clear_text()
 case = rwObjects.get_by_uuid('402faaee-4b15-11e5-92a4-f46d04d35cbd')[0]
-
-from prototype1_tools import extract_addresses
-import urllib
-from bs4 import BeautifulSoup
-
-email_to = "mailto:"
-params = {'subject':'','references':'','body':'','cc':''}
-param_to = ''
-pre_body = ''
-
-for adr,names in extract_addresses(obj.__dict__['from']).iteritems():
-    param_to += adr + ","
-
-params['subject'] = "Re: " + obj.__dict__['subject']
-params['references'] = obj.__dict__['message-id'].replace(" ","")
-
-soup = BeautifulSoup(obj.__dict__['raw_text_plain'], from_encoding="utf8")
-body = str(soup.find('body').get_text())
-body = ""
-
-pre_body = "\n<blockquote>" + body + "</blockquote>"
-
-params['body'] = """ """ + str(case.solve) + pre_body + " "
+account = rwObjects.get_by_uuid('fe728eb8-45bb-11e5-95c6-f46d04d35cbd')[0]
 
 
-email_to += param_to + "?"
+headers_data = dict()
+email_data = dict()
 
-for k in params.keys():
-    print k
-    #print params[k]
-    #email_to += "&" + k + "=" + urllib.quote(params[k])
+headers_data['to'] = "Only english <1jitterxxx@yandex.ru>, Яндекс 2 Фомин <2jitterxxx@yandex.ru>"
+headers_data['from'] = "Фомин Сергей <sergey@reshim.com>"
+headers_data['subject'] = "Re: " + obj.__dict__['subject']
+headers_data['cc'] = "Проверка русского <sergey_fomin@list.ru>, 333 <3jitterxxx@yandex.ru>, test@prosto.ru"
+headers_data['references'] = "<" + obj.__dict__['message-id'].strip() + ">"
+headers_data['body'] = case.solve + obj.__dict__['raw_text_html']
+headers_data['account'] = 'fe728eb8-45bb-11e5-95c6-f46d04d35cbd'
+headers_data['send_options'] = 'to_drafts'
 
-
-print email_to + urllib.urlencode(params).replace("+","%20").replace("%0A","%0D%0A") + \
-      urllib.quote("<blockquote></blockquote>")
-
+rwEmail.outgoing_message(headers_data)
 
 session.close()

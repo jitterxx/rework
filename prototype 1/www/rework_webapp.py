@@ -1046,23 +1046,20 @@ class Case(object):
     def send(self, **kwargs):
         data = cherrypy.request.params
         session_context = cherrypy.session.get('session_context')
-        print "Данные запроса: %s" % data
-        email_data = dict()
+        print "Данные запроса:"
+        for key in data.keys():
+            print "%s : %s" % (key,data[key])
         try:
-            account = rwObjects.get_by_uuid(data['account'])[0]
+            status = rwEmail.outgoing_message(data)
         except Exception as e:
+            print "Case.send. Операция: rwEmail.outgoing_message(data). Ошибка: %s" % str(e)
             return ShowError(str(e))
-        else:
-            pass
-        email_data['from'] = account.login
-        email_data['server'] = account.server
-        email_data['password'] = account.password
-        email_data['to'] = data['to']
-        email_data['subject'] = data['subject']
-        email_data['cc'] = data['cc']
-        email_data['body'] = data['body']
 
-        status = rwEmail.send_email(email_data)
+        print status
+        if not status[0]:
+            print status[0]
+            print status[1]
+            return ShowError(str(status[0])+status[1])
 
         raise cherrypy.HTTPRedirect("/cases/%s/use?for_uuid=%s" % (data['case_uuid'],data['obj_uuid']))
 
