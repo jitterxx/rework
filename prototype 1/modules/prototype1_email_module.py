@@ -447,12 +447,12 @@ def outgoing_message(data):
 
     elif data['send_options'] == 'now':
         # Отправляем и сохраняем в Отправленные
-        status_save = save_message_to(msg, "sent", account)
-        if not status_save[0]:
-            return status_save
         status_send = send_message_smtp(account, to_field, msg)
         if not status_send[0]:
             return status_send
+        status_save = save_message_to(msg, "sent", account)
+        if not status_save[0]:
+            return status_save
 
     return [True,"OK"]
 

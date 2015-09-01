@@ -799,19 +799,22 @@ class ShowKTreeCategory(object):
 
         session = rwObjects.Session()
         leaf = rwObjects.get_by_uuid(category_uuid)[0]
-        nodes = list()
+
+        # Получаем все связанные объекты для этого пользователя
         neighbors = G.neighbors(session_context['uuid'])
         neighbors.append(session_context['uuid'])
 
+        # Получаем все объекты связанные с этим узлом НЗ
         try:
             response = session.query(rwObjects.Reference). \
                 filter(rwObjects.or_(rwObjects.Reference.source_uuid == leaf.uuid, \
                                      rwObjects.Reference.target_uuid == leaf.uuid)). \
                 order_by(rwObjects.desc(rwObjects.Reference.timestamp)).all()
         except Exception as e:
-            raise (e)
+            raise e
         else:
             pass
+        nodes = list()
         for line in response:
             source = rwObjects.get_by_uuid(line.source_uuid)[0]
             target = rwObjects.get_by_uuid(line.target_uuid)[0]
@@ -820,8 +823,7 @@ class ShowKTreeCategory(object):
             elif line.link == 0 and target.uuid == category_uuid:
                 nodes.append(source)
 
-        # print nodes
-
+        # Получаем результаты автоклассификации для объектов в этом узле НЗ
         auto_cats = dict()
         for node in nodes:
             auto_cats[node.uuid] = rwObjects.get_classification_results(session, node.uuid)
@@ -1011,6 +1013,7 @@ class Case(object):
         tmpl = lookup.get_template("use_case.html")
         session_context = cherrypy.session.get('session_context')
         session = rwObjects.Session()
+        # Получаем объекты
         try:
             obj = rwObjects.get_by_uuid(for_uuid)[0]
             case = rwObjects.get_by_uuid(case_uuid)[0]
@@ -1022,20 +1025,20 @@ class Case(object):
         accounts = dict()
         obj_nbrs = G.neighbors(for_uuid)
         user_nbrs = G.neighbors(session_context['uuid'])
-
+        # Создаем список аккаунтов пользователя через которые можно отправить ответ
         for i in user_nbrs:
             node = G.graph.node[i]['obj']
             if node.__class__.__name__ == 'Account':
                 print "Аккаунт объекта: %s" % node.login
                 accounts[node.uuid] = node
-
+        # Получаем аккаунт объекта через который можно отправить ответ
         for i in obj_nbrs:
             node = G.graph.node[i]['obj']
             if node.__class__.__name__ == 'Account':
                 print "Аккаунт пользователя: %s" % node.login
                 obj_account = node
 
-        soup = BeautifulSoup(obj.__dict__['raw_text_plain'], from_encoding="utf8")
+        soup = BeautifulSoup(obj.__dict__['raw_text_html'], from_encoding="utf8")
         body_old = str(soup.find('body').contents[0])
 
         session.close()
@@ -1049,6 +1052,7 @@ class Case(object):
         print "Данные запроса:"
         for key in data.keys():
             print "%s : %s" % (key,data[key])
+        # Передаем данные в функцию обрабатывающую отправку сообщений
         try:
             status = rwEmail.outgoing_message(data)
         except Exception as e:
@@ -1061,7 +1065,7 @@ class Case(object):
             print status[1]
             return ShowError(str(status[0])+status[1])
 
-        raise cherrypy.HTTPRedirect("/cases/%s/use?for_uuid=%s" % (data['case_uuid'],data['obj_uuid']))
+        raise cherrypy.HTTPRedirect("/object/%s" % data['obj_uuid'])
 
 
 
@@ -1073,6 +1077,7 @@ class Case(object):
         print "Данные запроса: %s" % data
 
         session = rwObjects.Session()
+        # Получаем по uuid создателя кейса
         try:
             source = rwObjects.get_by_uuid(session_context['uuid'])[0]
         except Exception as e:
@@ -1080,7 +1085,7 @@ class Case(object):
         else:
             pass
 
-        # Создаем новый Case
+        # Создаем новый Case и проводим тренировку классификатора расстояний
         try:
             status, obj = rwObjects.create_new_object(session, "cases", data, source)
         except Exception as e:
@@ -1091,7 +1096,7 @@ class Case(object):
             rwLearn.train_neighbors(session, rwObjects.default_neighbors_classifier)
             print status
 
-        # Линкуем новый Case с объектом из которго он был создан
+        # Линкуем новый Case с объектом из которого он был создан
         try:
             status = rwObjects.link_objects(session,obj.uuid,data['do_object_uuid'])
         except Exception as e:

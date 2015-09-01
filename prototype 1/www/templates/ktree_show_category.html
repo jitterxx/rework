@@ -16,7 +16,8 @@
             % endif
         </div>
         % for node in nodes:
-            % if node.__dict__['uuid'] in neighbors or 'admin' in session_context['groups']:
+            % if node.__dict__['uuid'] in neighbors or 'admin' in session_context['groups'] or 'expert' in \
+        session_context['groups']:
 
             <div class="well well-sm">
                 <p>
