@@ -97,8 +97,13 @@ class ShowObject():
 
             if obj.__tablename__ == 'dynamic_object':
                 obj.clear_text()
-                nbr = rwLearn.predict_neighbors(rwObjects.default_neighbors_classifier,\
-                                                                      [obj.__dict__['text_clear']])
+                try:
+                    nbr = rwLearn.predict_neighbors(rwObjects.default_neighbors_classifier,\
+                                                                        [obj.__dict__['text_clear']])
+                except Exception as e:
+                    print "Ошибка получения сосдей поиске кейсов. Ошибка: %s " % str(e)
+                    nbr = list()
+
                 print "nbrs : %s" % nbr
                 for i in nbr:
                     case = rwObjects.get_by_uuid(i[0])[0]

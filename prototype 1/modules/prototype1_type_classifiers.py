@@ -624,28 +624,35 @@ def save_classification_result(session,target_uuid,clf_uuid,probe):
         res = session.query(rwObjects.ClassificationResult).\
             filter(rwObjects.and_(rwObjects.ClassificationResult.clf_uuid == clf_uuid,\
                                   rwObjects.ClassificationResult.target_uuid == target_uuid)).one()
-    except Exception:
-        print "Новая автоклассификация для %s" % target_uuid
+    except rwObjects.sqlalchemy.orm.exc.NoResultFound:
+        print "Сохраняем новаую автоклассификацию для %s" % target_uuid
         result = rwObjects.ClassificationResult()
     else:
         print "Перезаписываем автоклассификацию для %s" % target_uuid
         result = res
 
+    print "Запоняем объект результатов."
     result.clf_uuid = clf_uuid
     result.target_uuid = target_uuid
     result.probe = ",".join(map(str,probe[0]))
     result.status = "new"
 
-    CL = rwObjects.get_by_uuid(clf_uuid)[0]
+    try:
+        CL = rwObjects.get_by_uuid(clf_uuid)[0]
+    except Exception as e:
+        print "Ошибка получения классификатора: %s " % clf_uuid
+        return [False,"Ошибка получения классификатора: %s. %s" % (clf_uuid, str(e))]
+
     result.categories = CL.targets
+
+    print "Сохраняем данные автоклассификации для %s " % target_uuid
 
     try:
         session.add(result)
         session.commit()
     except Exception as e:
-        return [False,str(e)]
-    else:
-        pass
+        print "Ошибка сохранения автоклассификации для %s " % target_uuid
+        return [False,"Ошибка сохранения автоклассификации для %s. %s" % (target_uuid, str(e))]
 
     return [True,"OK"]
 
@@ -662,7 +669,6 @@ def autoclassify_all_notlinked_objects():
     # Ищем все сообщения, их них отбираем только те которые не имеют связей с custom
     # т.е. имею пустое свойство self.__dict__['custom_category']
     session = rwObjects.Session()
-
     resp = session.query(rwObjects.DynamicObject).all()
     for obj in resp:
         obj.read(session)

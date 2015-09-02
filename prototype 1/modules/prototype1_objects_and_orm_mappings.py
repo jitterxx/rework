@@ -246,7 +246,8 @@ def create_company():
 
     print "Создаем базовый классификатор для кастомных разделов Дерева Знаний."
     try:
-        status, clf = rwLearn.init_classifier(session, Classifier(), 'svc')
+        #status, clf = rwLearn.init_classifier(session, Classifier(), 'svc')
+        status, obj = create_new_object(session, "classifiers", {'clf_type': 'svc'}, superuser)
     except Exception as e:
         raise (e)
     else:
@@ -256,7 +257,8 @@ def create_company():
 
     print "Создаем базовый классификатор для вычисления расстояний Навигатора Знаний."
     try:
-        status, clf = rwLearn.init_classifier(session, Classifier(), 'nbrs')
+        #status, clf = rwLearn.init_classifier(session, Classifier(), 'nbrs')
+        status, obj = create_new_object(session, "classifiers", {'clf_type': 'nbrs'}, superuser)
     except Exception as e:
         raise (e)
     else:
@@ -2074,7 +2076,7 @@ def create_new_object(session, object_type, params, source):
 
     elif object_type == "classifiers":
         CL = Classifier()
-        st, new_obj = rwLearn.init_classifier(session, CL, 'svc')
+        st, new_obj = rwLearn.init_classifier(session, CL, params['clf_type'])
 
     elif object_type == "cases":
         new_obj = Case()

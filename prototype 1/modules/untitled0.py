@@ -95,12 +95,12 @@ for i in result:
 
 account = rwObjects.get_by_uuid('299ce9d6-5191-11e5-902c-f46d04d35cbd')[0]
 
-G = rwObjects.AccessGraph()
-print G.graph.nodes()
-print G.neighbors('299ce9d6-5191-11e5-902c-f46d04d35cbd')
+session = rwObjects.Session()
 
 
-
+print "blabla"
+st = rwObjects.get_by_uuid('29f1e382-5191-11e5-902c-f46d04d35cbd')
+print st[1]
 
 
 
