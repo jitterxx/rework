@@ -943,12 +943,13 @@ class AccessGraph(object):
         G = nx.Graph()
         labels = {}
         for line in response:
-            s_obj = rwObjects.get_by_uuid(line.source_uuid)[0]
-            t_obj = rwObjects.get_by_uuid(line.target_uuid)[0]
-            G.add_node(str(line.source_uuid), obj=s_obj)
-            G.add_node(str(line.target_uuid), obj=t_obj)
-            G.add_edge(str(line.source_uuid), str(line.target_uuid), weight=int(line.link), timestamp=line.timestamp)
-            # print G.node[str(line.source_uuid)]
+            if line.link == 0:
+                s_obj = rwObjects.get_by_uuid(line.source_uuid)[0]
+                t_obj = rwObjects.get_by_uuid(line.target_uuid)[0]
+                G.add_node(str(line.source_uuid), obj=s_obj)
+                G.add_node(str(line.target_uuid), obj=t_obj)
+                G.add_edge(str(line.source_uuid), str(line.target_uuid), weight=int(line.link), timestamp=line.timestamp)
+                # print G.node[str(line.source_uuid)]
 
         self.graph = G
         session.close()
