@@ -846,7 +846,7 @@ class ShowKTreeCategory(object):
         session_context['back_ref'] = '/ktree'
         session_context['menu'] = 'ktree_category'
         if session_context['menu'] == 'ktree_category':
-            session_context['back_ref'] = '/ktree/' + str(category_uuid)
+            #session_context['back_ref'] = '/ktree/' + str(category_uuid)
             session_context['menu'] = 'ktree_category'
 
         if session_context['menu'] == 'ktree_settings':

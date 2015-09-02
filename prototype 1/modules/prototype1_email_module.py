@@ -74,10 +74,10 @@ def get_emails(account):
 
     try:
         M = imaplib.IMAP4_SSL(server)
-    except: 
-        print 'Connection problem!', sys.exc_info()[0]
+    except Exception as e:
+        print 'Connection problem! %s' % str(e)
         status = 'ERROR.\n'
-        raise
+        raise Exception(e)
             
     if debug:
         print M.PROTOCOL_VERSION
@@ -87,17 +87,18 @@ def get_emails(account):
     M.login(login,password)
     s = {}
 
-    for cur_dir in dirs.keys():
+    # Письма ищем только во Входящих и Отправленных
+    for cur_dir in ['inbox','sent']:
         if debug:
             print "Проверяю папку: ",dirs[cur_dir]
             print M.select(dirs[cur_dir])
         
         M.select(dirs[cur_dir])
         
-        #typ, data = M.search('UTF8','SINCE',date_after)
-        #Запоминиаем какие письма были непрочитанными        
+        # typ, data = M.search('UTF8','SINCE',date_after)
+        # Запоминиаем какие письма были непрочитанными
         try:
-            typ, data = M.search(None,'(UNSEEN)','(SINCE "%s")' % (date_after))
+            typ, data = M.search(None,'(UNSEEN)','(SINCE "%s")' % date_after)
         except Exception as e:
             raise Exception(str(date_after)+str(e))
         else:
@@ -119,7 +120,6 @@ def get_emails(account):
         
             msg = email.message_from_string(data[0][1])
 
-            
             msg_data = {}
             for n,m in msg.items():
                 k = ''
@@ -138,7 +138,7 @@ def get_emails(account):
                 broken = False
 
                 try:            
-                    for h in email.header.decode_header(m):
+                    for h in email.Header.decode_header(m):
                         
                         k = ' '.join((k,h[0]))
                         if not (h[1] == None):
@@ -165,8 +165,7 @@ def get_emails(account):
             if debug:
                 print msg_data.keys()
                 pass
-        
-            
+
             msg_data['text_plain'] = ''
             msg_data['raw_text_plain'] = ''
             msg_data['text_html'] = ''
@@ -174,6 +173,9 @@ def get_emails(account):
             if msg.is_multipart():
                 for part in msg.walk():
                     if part.get_content_type() == "text/plain":
+
+                        if not part.get_content_charset():
+                            part.set_charset("utf8")
                         html = unicode(part.get_payload(decode=True),
                                        part.get_content_charset(),
                                        'replace').encode('utf8','replace')
@@ -197,13 +199,17 @@ def get_emails(account):
                     
                     if not msg.get_content_charset():
                         msg.set_charset("utf8")
-                    
+
                     html = unicode(msg.get_payload(decode=True),
                                    msg.get_content_charset(),
                                    'replace').encode('utf8','replace')
                     msg_data['text_plain'] += html
                     msg_data['raw_text_plain'] += html
                 elif msg.get_content_type() == "text/html":
+
+                    if not msg.get_content_charset():
+                        msg.set_charset("utf8")
+
                     html = unicode(msg.get_payload(decode=True),
                                    msg.get_content_charset(),
                                    'replace').encode('utf8','replace')
@@ -229,7 +235,7 @@ def get_emails(account):
                         msg_low[k] = ea
                     """
                     if k in ['message-id']:
-                        msg_low[k] = re.sub(u'[<>]+',u'',msg_low[k],re.I|re.U|re.M)
+                        msg_low[k] = msg_low[k].strip("[ |<|>]")
 
                 s[num] = dict(zip(msg_low.keys(), msg_low.values()))
 

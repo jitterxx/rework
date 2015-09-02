@@ -94,33 +94,19 @@ for i in result:
 
 
 
-obj = rwObjects.get_by_uuid('39ed6a36-44cb-11e5-a8fd-f46d04d35cbd')[0]
-obj.clear_text()
-case = rwObjects.get_by_uuid('402faaee-4b15-11e5-92a4-f46d04d35cbd')[0]
 account = rwObjects.get_by_uuid('fe728eb8-45bb-11e5-95c6-f46d04d35cbd')[0]
 
-old_edges = rwObjects.get_ktree_for_object(session, '61779b3a-475a-11e5-8833-f46d04d35cbd')[0]
-edges_for_delete = list()
-category_uuid = ['a71b7f68-41dc-11e5-bd33-f46d04d35cbd']
+emails, status = rwEmail.get_emails(account)
 
-for old in old_edges.values():
-    if old.uuid not in category_uuid:
-        print old.uuid
-        edges_for_delete.append(old.uuid)
+for email in emails.values():
+    print type(email)
+    print email['message-id']
 
-print old_edges
-print edges_for_delete
-print category_uuid
 
-resp = session.query(rwObjects.Reference).filter(rwObjects.and_(\
-    rwObjects.Reference.source_type == 'knowledge_tree',
-    rwObjects.Reference.source_uuid.in_(edges_for_delete),
-    rwObjects.Reference.target_uuid == '61779b3a-475a-11e5-8833-f46d04d35cbd',
-    rwObjects.Reference.link == 0)).all()
 
-for i in resp:
-    print i.source_uuid
-    print i.target_uuid
-    print ""
+
+
+
+
 
 session.close()

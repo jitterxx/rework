@@ -83,7 +83,9 @@ def get_messages_for_account(account_uuid):
             email['channel_type'] = rwObjects.rwChannel_type[0]
             email['obj_type'] = do.obj_type = do.collection = 'messages'
 
-            if not do.check({"message-id": email['message-id']}):
+            if 'message-id' not in email.keys():
+                print "Сообщение без Message-ID. Не записано."
+            elif not do.check({"message-id": email['message-id']}):
                 print "----------Начало записи в Монго------------------"
                 s = do.write(session, email)
 
@@ -165,6 +167,47 @@ def apply_rules_for_1(source_uuid, source_type, target_uuid, target_type):
             print "Линкуем %s с %s " % (owner_uuid, target_uuid)
             """Делаем линкование объектов """
             rwObjects.link_objects(session, owner_uuid, target_uuid)
+
+        """
+        Objects Rule #1.1
+        Acc создает Msg
+        Если S = Account и T = Messages, то ищем о полю References в новом сообщении, существующие сообщения
+        с входящими в него message-id. Если находим линкуем.
+         """
+        # Получаем новый объект класса DO
+        try:
+            new_msg = rwObjects.get_by_uuid(target_uuid)[0]
+        except Exception as e:
+            raise Exception(str(e))
+        all = dict()
+
+        # Получаем все сообщения и записываем их id и uuid
+        try:
+            resp = session.query(rwObjects.DynamicObject).all()
+        except Exception as e:
+            raise Exception(str(e))
+
+        for msg in resp:
+            try:
+                obj = rwObjects.get_by_uuid(msg.uuid)[0]
+            except Exception as e:
+                raise Exception(str(e))
+            all[obj.__dict__['message-id'].strip("[ |<|>]")] = msg.uuid
+
+        # Если есть поле References, то работаем по нему, иначе ничего не делаем
+        if 'references' in new_msg.__dict__.keys():
+            refs = list()
+            for r in new_msg.__dict__['references'].split(" "):
+                refs.append(r.strip("[ |<|>]"))
+
+            links = list()
+            for r in refs:
+                if r in all.keys():
+                    links.append([all[r],new_msg.uuid])
+            print links
+            for l in links:
+                rwObjects.link_objects(session, l[0], l[1])
+
 
         """
         Objects Rule #2
