@@ -92,6 +92,7 @@ class ShowObject():
             session_context = cherrypy.session.get('session_context')
             neighbors = G.neighbors(session_context['uuid'])
 
+            # Ищем подходящие для этого ДО кейсы, считаем расстояние и выбираем только подходящие
             cases = dict()
             nbrs = list()
 
@@ -117,6 +118,24 @@ class ShowObject():
                 if session_context['login'] == leaf.expert:
                     show_object = True
 
+            # Создаем список связанных объектов для показа
+            linked_nodes = dict()
+            for i in G.neighbors(obj.uuid):
+                if i != obj.uuid:
+                    try:
+                        lo = rwObjects.get_by_uuid(i)[0]
+                    except Exception as e:
+                        return ShowError("Showbject. Операция : linked_nodes[i] = rwObjects.get_by_uuid(i)[0]. Ошибка :"
+                                         "%s" % str(e))
+                    try:
+                        linked_nodes[lo.__tablename__]
+                    except KeyError:
+                        linked_nodes[lo.__tablename__] = dict()
+                    linked_nodes[lo.__tablename__][lo.uuid] = lo
+
+            print "Объект для вывода связей : %s" % obj.uuid
+            print "linked_nodes : %s" % linked_nodes
+
             print "session_context['menu'] : %s " % session_context['menu']
 
             if session_context['menu'] in ['accounts', 'employee']:
@@ -127,7 +146,8 @@ class ShowObject():
             session_context['menu'] = "show_object"
             return tmpl.render(obj=obj, keys=obj_keys,
                                session_context=session_context, all_f=f[0], view_f=f[1],
-                               neighbors=neighbors, cases=cases, nbrs=nbrs, show_object=show_object)
+                               neighbors=neighbors, cases=cases, nbrs=nbrs, show_object=show_object,
+                               linked_nodes=linked_nodes)
 
     @cherrypy.expose
     def frame(self, uuid):

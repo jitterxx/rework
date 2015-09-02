@@ -6,14 +6,29 @@
     <script src="/static/ckeditor/ckeditor.js"></script>
 </%block>
 
+
     <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
         <h2 class="sub-header">${obj.NAME}</h2>
-        <div class="table-responsive">
-            <table class="table table-striped">
-              <tbody>
-                % if obj.__dict__['uuid'] in neighbors or 'admin' in session_context['groups'] or \
-                    obj.__tablename__ == 'cases' or show_object:
+        % if obj.__dict__['uuid'] in neighbors or 'admin' in session_context['groups'] or \
+            obj.__tablename__ == 'cases' or show_object:
 
+            <p>
+                <a href="${session_context['back_ref']}" class="btn btn-default" role="button">Назад</a>
+                % if obj.__tablename__ != 'dynamic_object':
+                    <a href="edit" class="btn btn-default" role="button">Редактировать</a>
+                % endif
+                % if ('admin' in session_context['groups'] or 'expert' in session_context['groups']) and \
+                    obj.__tablename__ == 'dynamic_object':
+                    <a href="/cases/add?uuid=${obj.uuid}" class="btn btn-default" role="button">Создать кейс</a>
+                % endif
+                <button type="button" class="btn btn-default" data-toggle="modal" data-target="#linked_nodes">
+                    Связанные объекты
+                </button>
+            </p>
+
+            <div class="table-responsive">
+                <table class="table table-striped">
+                  <tbody>
                     % if obj.__tablename__ == 'dynamic_object' and nbrs:
                         <tr>
                             <td>Кейсы</td>
@@ -27,7 +42,6 @@
                             </td>
                         </tr>
                     % endif
-
                     %if obj.__tablename__ == 'cases':
                         % for key in view_f:
                             % if key == 'query':
@@ -90,27 +104,24 @@
                           </tr>
                         % endfor
                     % endif
-                %else:
-                    <div class="alert alert-warning" role="alert">
-                        <p>Недостаточно прав.</p>
-                    </div>
-                % endif
+                  </tbody>
+                </table>
+            </div>
+        % else:
+            <div class="alert alert-warning" role="alert">
+                <p>Недостаточно прав.</p>
+            </div>
+        % endif
 
-                	 <tr>
-                	 <td><a href="${session_context['back_ref']}">Назад</a></td>
-                     % if obj.__tablename__ != 'dynamic_object':
-                         <td><a href="edit">Редактировать</a></td>
-                     % endif
-                     <td>
-                         % if ('admin' in session_context['groups'] or 'expert' in session_context['groups']) and \
-                            obj.__tablename__ == 'dynamic_object':
-                         <a href="/cases/add?uuid=${obj.uuid}">Создать кейс</a>
-                         % endif
-                     </td>
-                    </tr>
-              </tbody>
-            </table>
-        </div>
+            <a href="${session_context['back_ref']}" class="btn btn-default" role="button">Назад</a>
+            % if obj.__tablename__ != 'dynamic_object':
+                <a href="edit" class="btn btn-default" role="button">Редактировать</a>
+            % endif
+            % if ('admin' in session_context['groups'] or 'expert' in session_context['groups']) and \
+                obj.__tablename__ == 'dynamic_object':
+                <a href="/cases/add?uuid=${obj.uuid}" class="btn btn-default" role="button">Создать кейс</a>
+            % endif
+
 
         % if obj.__tablename__ == 'dynamic_object' and nbrs:
             % for i in nbrs:
@@ -172,6 +183,56 @@
             </div>
 
             % endfor
+        % endif
+        % if linked_nodes:
+            <!-- Modal -->
+            <div class="modal" id="linked_nodes" tabindex="-1" role="dialog"
+                 aria-labelledby="linked_nodes_label">
+              <div class="modal-dialog modal-lg" role="document">
+                <div class="modal-content ">
+                  <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title" id="linked_nodes_label">Связанная информация</h4>
+                  </div>
+                  <div class="modal-body">
+                      % for key in linked_nodes.keys():
+                            <div class="panel panel-default">
+                                <div class="panel-heading">
+                            % if key == 'cases':
+                                Связан с Кейсами:<br>
+                            % elif key == 'accounts':
+                                Получено через Аккаунт:<br>
+                            % elif key == 'employees':
+                                Пользователь: <br>
+                            % elif key == 'knowledge_tree':
+                                Раздел Навигатора Знаний:
+                            % elif key == 'dynamic_object':
+                                Связан с сообщениями:
+                            % else:
+                                ${key}
+                            % endif
+                                </div>
+                                <div class="panel-body">
+                        % for k in linked_nodes[key].keys():
+                            % for f in linked_nodes[key][k].SHORT_VIEW_FIELDS:
+                                <strong>${linked_nodes[key][k].ALL_FIELDS[f]}:</strong>
+                                <a href="/object/${linked_nodes[key][k].__dict__['uuid']}">
+                                    ${linked_nodes[key][k].__dict__[f]}
+                                </a>
+                            % endfor
+                                    <br>
+                        % endfor
+                                </div>
+                            </div>
+                      % endfor
+                  </div>
+                  <div class="modal-footer">
+                      <button type="button" class="btn btn-default" data-dismiss="modal">Закрыть</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
         % endif
 
     </div>
