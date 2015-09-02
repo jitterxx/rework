@@ -93,20 +93,14 @@ for i in result:
 """
 
 
+account = rwObjects.get_by_uuid('299ce9d6-5191-11e5-902c-f46d04d35cbd')[0]
 
-account = rwObjects.get_by_uuid('fe728eb8-45bb-11e5-95c6-f46d04d35cbd')[0]
-
-emails, status = rwEmail.get_emails(account)
-
-for email in emails.values():
-    print type(email)
-    print email['message-id']
+G = rwObjects.AccessGraph()
+print G.graph.nodes()
+print G.neighbors('299ce9d6-5191-11e5-902c-f46d04d35cbd')
 
 
 
 
 
 
-
-
-session.close()

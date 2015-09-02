@@ -18,7 +18,6 @@ import prototype1_email_module as rwEmail
 import cherrypy
 from bs4 import BeautifulSoup
 from auth import AuthController, require, member_of, name_is
-import networkx as nx
 import matplotlib.pyplot as plt
 from matplotlib import rc
 
@@ -620,13 +619,19 @@ class Timeline(object):
         session_context['menu'] = 'timeline'
         cherrypy.session['session_context'] = session_context
         session = rwObjects.Session()
-        events = session.query(rwObjects.Reference).filter(rwObjects.Reference.link == link). \
-            order_by(rwObjects.desc(rwObjects.Reference.timestamp)).all()
-        obj_keys = events[0].get_attrs()
-        fields = events[0].get_fields()
+        try:
+            events = session.query(rwObjects.Reference).filter(rwObjects.Reference.link == link). \
+                order_by(rwObjects.desc(rwObjects.Reference.timestamp)).all()
+            obj_keys = events[0].get_attrs()
+            fields = events[0].get_fields()
+        except IndexError:
+            obj_keys = rwObjects.rw_parent().get_attrs()
+            fields = rwObjects.rw_parent().get_fields()
+        except Exception as e:
+            return ShowError(str(e))
+
         actors = {}
-        neighbors = G.graph.neighbors(session_context['uuid'])
-        neighbors.append(session_context['uuid'])
+        neighbors = G.neighbors(session_context['uuid'])
 
         for event in events:
             event.read(session)
@@ -961,47 +966,7 @@ class RestrictedArea:
         return """This is the admin only area."""
 
 
-class AccessGraph(object):
-    """
-    Граф для определения прав доступа к объектам.
-    """
-
-    def __init__(self):
-        session = rwObjects.Session()
-        response = session.query(rwObjects.Reference).all()
-
-        G = nx.Graph()
-        labels = {}
-        for line in response:
-            if line.link == 0:
-                s_obj = rwObjects.get_by_uuid(line.source_uuid)[0]
-                t_obj = rwObjects.get_by_uuid(line.target_uuid)[0]
-                G.add_node(str(line.source_uuid), obj=s_obj)
-                G.add_node(str(line.target_uuid), obj=t_obj)
-                G.add_edge(str(line.source_uuid), str(line.target_uuid), weight=int(line.link), timestamp=line.timestamp)
-                # print G.node[str(line.source_uuid)]
-
-        self.graph = G
-        session.close()
-
-    def reload(self):
-        """
-        Функция перезагружает граф из базы.
-
-        :return:
-        """
-
-        self.__init__()
-
-    def neighbors(self, uuid=None):
-
-        if uuid:
-            return self.graph.neighbors(uuid) + [uuid]
-        else:
-            return None
-
-
-G = AccessGraph()
+G = rwObjects.AccessGraph()
 
 
 class Case(object):
@@ -1218,6 +1183,7 @@ class Root(object):
         c = get_session_context(cherrypy.request.login)
         params = cherrypy.request.headers
         rwQueue.msg_delivery_for_user.delay(str(c['uuid']))
+        G.reload()
         return tmpl.render(params=params, session_context=c, G=G)
 
     @cherrypy.expose

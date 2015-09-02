@@ -24,6 +24,7 @@ import pymongo
 import re
 import operator
 from configurations import *
+import networkx as nx
 
 import sys
 
@@ -1782,6 +1783,51 @@ class Question(Base, rw_parent):
 
     def __init__(self):
         self.uuid = uuid.uuid1()
+
+
+class AccessGraph(object):
+    """
+    Граф для определения прав доступа к объектам.
+    """
+
+    def __init__(self):
+        session = Session()
+        response = session.query(Reference).all()
+
+        G = nx.Graph()
+        labels = {}
+        for line in response:
+            if line.link == 0:
+                s_obj = get_by_uuid(line.source_uuid)[0]
+                t_obj = get_by_uuid(line.target_uuid)[0]
+                G.add_node(str(line.source_uuid), obj=s_obj)
+                G.add_node(str(line.target_uuid), obj=t_obj)
+                G.add_edge(str(line.source_uuid), str(line.target_uuid), weight=int(line.link), timestamp=line.timestamp)
+                # print G.node[str(line.source_uuid)]
+
+        self.graph = G
+        session.close()
+
+    def reload(self):
+        """
+        Функция перезагружает граф из базы.
+
+        :return:
+        """
+
+        self.__init__()
+
+    def neighbors(self, uuid=None):
+
+        if uuid:
+            try:
+                self.graph.neighbors(uuid)
+            except:
+                return [uuid]
+            else:
+                return self.graph.neighbors(uuid) + [uuid]
+        else:
+            return None
 
 
 def test():
