@@ -16,38 +16,48 @@
             % endif
         </div>
         % for node in nodes:
-            % if node.__dict__['uuid'] in neighbors or 'admin' in session_context['groups'] or 'expert' in \
-        session_context['groups']:
+            % if node.__dict__['uuid'] in neighbors or 'admin' in session_context['groups'] or \
+                obj.expert == session_context['login'] or obj.objects_class == 'cases':
+                <%
+                    if node.__tablename__ == 'cases':
+                        panel_color = 'success'
+                    else:
+                        panel_color = 'default'
+                %>
+                <div class="panel panel-${panel_color}">
+                    <div class="panel-heading">
+                            % for key in node.SHORT_VIEW_FIELDS:
+                                <strong>${node.ALL_FIELDS[key]}: </strong>
 
-            <div class="well well-sm">
-                <p>
-                % if len(node.__dict__['custom_category']) == 0:
-                    <a class="btn btn-default btn-xs" role="button" href="/object/${node.uuid}/addlink">Связать</a>
-                % else:
-                    <a class="btn btn-default btn-xs" role="button" href="/object/${node.uuid}/addlink">Изменить</a>
-                % endif
+                                % if len(node.__dict__[key]) >= 45:
+                                    <a href="/object/${node.uuid}" class="text-${panel_color}">
+                                    ${node.__dict__[key][0:45]}...
+                                    </a>
+                                % else:
+                                    <a href="/object/${node.uuid}" class="text-${panel_color}">
+                                    ${node.__dict__[key]}
+                                    </a>
+                                % endif
+                                &nbsp;&nbsp;
+                            % endfor
+                    </div>
+                    <div class="panel-body">
 
-                % for cat in node.__dict__['custom_category']:
-                    <span class="label label-primary">${cat.name}</span>
-                % endfor
-
-                % for cat in auto_cats[node.uuid]:
-                    <span class="label label-warning">${cats_name[cat[1]].name} - ${"{0:.1%}".format(float(cat[0]))}</span>
-                % endfor
-                </p>
-                <a href="/object/${node.uuid}">
-                    % for key in node.SHORT_VIEW_FIELDS:
-                        <strong>${node.ALL_FIELDS[key]}: </strong>
-
-                        % if len(node.__dict__[key]) >= 45:
-                            ${node.__dict__[key][0:45]}...
+                        % if len(node.__dict__['custom_category']) == 0:
+                            <a class="btn btn-default btn-xs" role="button" href="/object/${node.uuid}/addlink">Связать</a>
                         % else:
-                            ${node.__dict__[key]}
+                            <a class="btn btn-default btn-xs" role="button" href="/object/${node.uuid}/addlink">Изменить</a>
                         % endif
-                        &nbsp;&nbsp;
-                    % endfor
-                </a>
-            </div>
+
+                        % for cat in node.__dict__['custom_category']:
+                            <span class="label label-primary">${cat.name}</span>
+                        % endfor
+
+                        % for cat in auto_cats[node.uuid]:
+                            <span class="label label-warning">${cats_name[cat[1]].name} - ${"{0:.1%}".format(float(cat[0]))}</span>
+                        % endfor
+                    </div>
+                </div>
             % endif
         % endfor
     </div>

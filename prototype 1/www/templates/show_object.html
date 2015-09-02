@@ -8,20 +8,26 @@
 
     <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
         <h2 class="sub-header">${obj.NAME}</h2>
-        % if obj.__tablename__ == 'dynamic_object' and nbrs:
-            <p>Кейсы:
-                % for i in nbrs:
-                    <button type="button" class="btn btn-warning btn-xs" data-toggle="modal"
-                            data-target="#${cases[i[0]].uuid}">
-                        ${cases[i[0]].subject}
-                    </button>
-                % endfor
-            </p>
-        % endif
         <div class="table-responsive">
             <table class="table table-striped">
               <tbody>
-                % if obj.__dict__['uuid'] in neighbors or 'admin' in session_context['groups']:
+                % if obj.__dict__['uuid'] in neighbors or 'admin' in session_context['groups'] or \
+                    obj.__tablename__ == 'cases' or show_object:
+
+                    % if obj.__tablename__ == 'dynamic_object' and nbrs:
+                        <tr>
+                            <td>Кейсы</td>
+                            <td>
+                            % for i in nbrs:
+                                <button type="button" class="btn btn-warning btn-xs" data-toggle="modal"
+                                        data-target="#${cases[i[0]].uuid}">
+                                    ${cases[i[0]].subject}
+                                </button>
+                            % endfor
+                            </td>
+                        </tr>
+                    % endif
+
                     %if obj.__tablename__ == 'cases':
                         % for key in view_f:
                             % if key == 'query':
@@ -74,12 +80,9 @@
                                         ${obj.ACCESS_GROUPS[group]}<br>
                                     % endfor
                                  % elif key == 'raw_text_html':
-                                  <%
-                                    lines_count = len(str(obj.__dict__[key]).splitlines())
-                                  %>
                                   <iframe width=80% onload="this.style.height=this.contentDocument.body.scrollHeight +'px';"
                                           scrolling=auto frameborder=0 src="frame">
-                                 </iframe>
+                                  </iframe>
                                  % else:
                                     ${obj.__dict__[key]}
                                  % endif
@@ -95,7 +98,9 @@
 
                 	 <tr>
                 	 <td><a href="${session_context['back_ref']}">Назад</a></td>
-                	 <td><a href="edit">Редактировать</a></td>
+                     % if obj.__tablename__ != 'dynamic_object':
+                         <td><a href="edit">Редактировать</a></td>
+                     % endif
                      <td>
                          % if ('admin' in session_context['groups'] or 'expert' in session_context['groups']) and \
                             obj.__tablename__ == 'dynamic_object':

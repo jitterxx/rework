@@ -50,7 +50,7 @@ class EditObject():
         except Exception as e:
             print e[0]
             print e[1]
-            raise cherrypy.HTTPRedirect("/")
+            return ShowError("EditObject. Операция rwObjects.get_by_uuid(uuid)[0]. Ошибка : %s" % str(e))
         else:
             tmpl = lookup.get_template("edit_object.html")
             obj_keys = obj.get_attrs()
@@ -107,6 +107,16 @@ class ShowObject():
                         cases[i[0]] = case
                         nbrs.append(i)
 
+            # Является ли текущий пользователь экспертом для одного из узлов НЗ, к которому относиться объект
+            # если являеться, то можно предоставить доступ
+            show_object = False
+            session = rwObjects.Session()
+            leafs = rwObjects.get_ktree_for_object(session, obj.uuid)[0]
+            session.close()
+            for leaf in leafs.values():
+                if session_context['login'] == leaf.expert:
+                    show_object = True
+
             print "session_context['menu'] : %s " % session_context['menu']
 
             if session_context['menu'] in ['accounts', 'employee']:
@@ -117,7 +127,7 @@ class ShowObject():
             session_context['menu'] = "show_object"
             return tmpl.render(obj=obj, keys=obj_keys,
                                session_context=session_context, all_f=f[0], view_f=f[1],
-                               neighbors=neighbors, cases=cases, nbrs=nbrs)
+                               neighbors=neighbors, cases=cases, nbrs=nbrs, show_object=show_object)
 
     @cherrypy.expose
     def frame(self, uuid):
