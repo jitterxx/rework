@@ -20,7 +20,7 @@
             <input type="hidden" name="object_type" value="${obj.__tablename__}">
             <input type="hidden" name="category_type" value="knowledge_tree">
             <p>
-                <select multiple class="form-control" name="category_uuid">
+                <select multiple class="form-control" name="category_uuid" size="${len(category)}">
                   % for one in category.values():
                     % if one.__dict__['uuid'] in used_category.keys():
                     <option selected value="${one.__dict__['uuid']}"> ${one.__dict__['name']} </option>

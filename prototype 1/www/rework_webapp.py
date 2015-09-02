@@ -237,7 +237,18 @@ class LinkObject(object):
         print "Category type:", category_type
 
         session = rwObjects.Session()
+
+        old_edges = rwObjects.get_ktree_for_object(session, object_uuid)[0]
+        edges_for_delete = list()
+
+        # Ищем связи которые надо удалить
+        for old in old_edges.values():
+            if old.uuid not in category_uuid:
+                edges_for_delete.append(old.uuid)
+
+        # Производим связывание объекта с категориями
         for category in category_uuid:
+            # Устанавливаем новые связи
             try:
                 st = rwObjects.link_objects(session, category, object_uuid)
             except Exception as e:
@@ -249,10 +260,29 @@ class LinkObject(object):
                 print st[0]
                 print st[1]
 
+        # Получаем список старых связей
+        try:
+            resp = session.query(rwObjects.Reference).filter(rwObjects.and_(\
+                rwObjects.Reference.source_type == 'knowledge_tree',
+                rwObjects.Reference.source_uuid.in_(edges_for_delete),
+                rwObjects.Reference.target_uuid == object_uuid,
+                rwObjects.Reference.link == 0)).all()
+        except Exception as e:
+            print str(e)
+            return ShowError("Ошибка : %s" % str(e))
+        # Удаляем старые связи
+        try:
+            for one in resp:
+                session.delete(one)
+            session.commit()
+        except Exception as e:
+            print str(e)
+            return ShowError("Ошибка : %s" % str(e))
+
         try:
             st = rwLearn.clear_autoclassify(session, object_uuid)
         except Exception as e:
-            print "Проблемы удалении автоклассфиикации.."
+            print "Проблемы удаления автоклассфиикации.."
             print e
         else:
             print "Удаление автоклассификации успешно."
