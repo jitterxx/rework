@@ -97,12 +97,17 @@ class ShowObject():
 
             if obj.__tablename__ == 'dynamic_object':
                 obj.clear_text()
+                nbr = list()
                 try:
                     nbr = rwLearn.predict_neighbors(rwObjects.default_neighbors_classifier,\
                                                                         [obj.__dict__['text_clear']])
+                except ValueError as e:
+                    print "Недостаточно кейсов для тренировки. Ошибка: %s" % str(e)
+                    session_context['message_to_user'] = "Поиск подходящих кейсов невозможен. Необходимо создать 3  " \
+                                                         "или больше кейсов."
+                    cherrypy.session['session_context'] = session_context
                 except Exception as e:
                     print "Ошибка получения сосдей поиске кейсов. Ошибка: %s " % str(e)
-                    nbr = list()
 
                 print "nbrs : %s" % nbr
                 for i in nbr:
@@ -194,7 +199,6 @@ class SaveObject():
             print status[1]
 
             print "Переадресация на show_object... ", url
-            G.reload()
             raise cherrypy.HTTPRedirect(url)
 
 
@@ -1161,8 +1165,15 @@ class Case(object):
         raise cherrypy.HTTPRedirect("/object/%s/addlink" % uuid)
 
     @cherrypy.expose
-    def save(self):
-        return ShowError("Сохранение")
+    @require(member_of("admin"))
+    def train(self):
+        session_context = cherrypy.session.get('session_context')
+        try:
+            rwLearn.train_neighbors(None, rwObjects.default_neighbors_classifier)
+        except Exception as e:
+            return ShowError("Обновить классификацию кейсов нельзя. " + str(e))
+
+        raise cherrypy.HTTPRedirect("/settings?menu=ktree")
 
 
 class Root(object):
@@ -1318,6 +1329,7 @@ def get_session_context(login):
     context['menu'] = "main"
     context['username'] = context['login'].split("@", 1)[0]
     context['groups'] = user.access_groups
+    context['message_to_user'] = ""
 
     cherrypy.session['session_context'] = context
 

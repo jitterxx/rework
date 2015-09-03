@@ -75,7 +75,7 @@ Cписок типов объектов к которым применяются
 Подключение БД и MongoDB
 """
 Base = sqlalchemy.ext.declarative.declarative_base()
-Engine = sqlalchemy.create_engine(sql_uri)
+Engine = sqlalchemy.create_engine(sql_uri, pool_size=20)
 Session = sqlalchemy.orm.sessionmaker(bind=Engine)
 
 Mongo_client = pymongo.MongoClient(mongo_uri)

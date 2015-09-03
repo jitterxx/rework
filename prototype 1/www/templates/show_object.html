@@ -8,6 +8,13 @@
 
 
     <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
+        % if session_context['message_to_user'] and session_context['message_to_user'] != '':
+            <div class="alert alert-warning alert-dismissible" role="alert">
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <strong>Внимание! </strong> ${session_context['message_to_user']}
+            </div>
+        % endif
+
         <h2 class="sub-header">${obj.NAME}</h2>
         % if obj.__dict__['uuid'] in neighbors or 'admin' in session_context['groups'] or \
             obj.__tablename__ == 'cases' or show_object:

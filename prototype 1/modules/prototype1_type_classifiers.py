@@ -793,7 +793,7 @@ def train_neighbors(session, clf_uuid):
     vec = vectorizer.fit(train_data)
 
     print "\nСохраняем матрицу векторов."
-    #joblib.dump(vec, CL.vec_path, compress=9)
+    joblib.dump(vec, CL.vec_path, compress=9)
 
     print "\nТрансформируем набор текстов для обучения."
     v = vec.fit_transform(train_data)
@@ -856,7 +856,7 @@ def predict_neighbors(clf_uuid,dataset):
         pass
         #print clf
         #print type(vec)
-        #print CL.targets
+        print CL.targets
 
     v = vec.transform(dataset)
     V = v.todense()
