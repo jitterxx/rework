@@ -262,6 +262,10 @@ def apply_rules_for_1(source_uuid, source_type, target_uuid, target_type):
     Класифицируем объекты типы которых указаны в константе FOR_CLASSIFY.
     """
     print "Проверка Knowledge Rule #2 для : %s" % tt
+    status = rwLearn.check_conditions_for_classify()
+    if not status[0]:
+        raise Exception("Не соблюдены условия для тренировки." + status[1])
+
     if tt in rwObjects.FOR_CLASSIFY:
         print "-------- Классифицируем объект : %s ---------" % target_uuid
         obj = rwObjects.get_by_uuid(target_uuid)[0]

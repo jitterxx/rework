@@ -194,7 +194,7 @@ class SaveObject():
             print status[1]
 
             print "Переадресация на show_object... ", url
-            # print cherrypy.request.__dict__
+            G.reload()
             raise cherrypy.HTTPRedirect(url)
 
 
@@ -707,7 +707,7 @@ class KTree(object):
         session_context['back_ref'] = '/ktree'
         session_context['menu'] = 'ktree'
         cherrypy.session['session_context'] = session_context
-
+        G.reload()
         return tmpl.render(obj=tree, session=session,
                            session_context=session_context)
 
@@ -793,7 +793,7 @@ class KTree(object):
     def create_new(self, **kwargs):
         data = cherrypy.request.params
         session_context = cherrypy.session.get('session_context')
-        url = session_context['back_ref'] = "/ktree"
+        url = session_context['back_ref']
 
         print "Данные из запроса : "
         print data
@@ -1157,6 +1157,7 @@ class Case(object):
                     return ShowError(str(status[0]) + status[1])
 
         session.close()
+        G.reload()
         raise cherrypy.HTTPRedirect("/object/%s/addlink" % uuid)
 
     @cherrypy.expose
@@ -1203,36 +1204,6 @@ class Root(object):
             pass
 
         raise cherrypy.HTTPRedirect("/settings?menu=ktree")
-
-    @cherrypy.expose
-    @require(member_of("users"))
-    def graph(self, link):
-        tmpl = lookup.get_template("graph.html")
-        c = get_session_context(cherrypy.request.login)
-        params = cherrypy.request.headers
-        session = rwObjects.Session()
-        response = session.query(rwObjects.Reference).filter(rwObjects.Reference.link == int(link)).all()
-
-        G = nx.Graph()
-        labels = {}
-        for line in response:
-            G.add_node(str(line.source_uuid), obj=line.source_type)
-            G.add_node(str(line.target_uuid), obj=line.target_type)
-            G.add_edge(str(line.source_uuid), str(line.target_uuid), comment=link)
-
-        for node in G.nodes():
-            obj = rwObjects.get_by_uuid(node)[0]
-            labels[node] = obj.NAME
-
-        pos = nx.spring_layout(G)
-        plt.figure(1, figsize=(10, 10))
-        nx.draw_networkx_nodes(G, pos)
-        nx.draw_networkx_labels(G, pos, labels=labels, font_size=7)
-        nx.draw_networkx_edges(G, pos)
-        plt.savefig("static/img/draw.png")
-        plt.close()
-
-        return tmpl.render(params=params, session_context=c)
 
     @cherrypy.expose
     @require(member_of("users"))

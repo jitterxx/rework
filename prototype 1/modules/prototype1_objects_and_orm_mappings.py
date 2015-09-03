@@ -147,7 +147,8 @@ def create_company():
     s = new_company.check()
 
     if not s[0]:
-        raise Exception(s[1])
+        print s[1]
+        return
     else:
         session.add(new_company)
 
@@ -246,26 +247,24 @@ def create_company():
 
     print "Создаем базовый классификатор для кастомных разделов Дерева Знаний."
     try:
-        #status, clf = rwLearn.init_classifier(session, Classifier(), 'svc')
         status, obj = create_new_object(session, "classifiers", {'clf_type': 'svc'}, superuser)
     except Exception as e:
         raise (e)
     else:
         print status
         print "\nЗапишите UUID классификатора в файл modules/configurations.py  в переменную default_classifier"
-        print "\n %s \n" % str(clf.uuid)
+        print "\n %s \n" % str(obj.uuid)
 
     print "Создаем базовый классификатор для вычисления расстояний Навигатора Знаний."
     try:
-        #status, clf = rwLearn.init_classifier(session, Classifier(), 'nbrs')
         status, obj = create_new_object(session, "classifiers", {'clf_type': 'nbrs'}, superuser)
     except Exception as e:
         raise (e)
     else:
         print status
-        print """\nЗапишите UUID классификатора в файл modules/configurations.py  в переменную \
+        print """\nЗапишите UUID классификатора в файл modules/configurations.py  в переменную
                     default_neighbors_classifier"""
-        print "\n %s \n" % str(clf.uuid)
+        print "\n %s \n" % str(obj.uuid)
 
     session.close()
 
