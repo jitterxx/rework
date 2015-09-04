@@ -21,6 +21,12 @@
         </p>
         <h2 class="sub-header"></h2>
         % endif
+        % if 'expert' in session_context['groups']:
+        <p>
+            <a class="btn btn-default" href="/cases/train">Обновить классификацию кейсов</a>
+        </p>
+        <h2 class="sub-header"></h2>
+        % endif
 
                         <%def name="template_return_childs(session,parent)">
                         <%

@@ -17,7 +17,7 @@ import prototype1_type_classifiers as rwLearn
 import prototype1_email_module as rwEmail
 import cherrypy
 from bs4 import BeautifulSoup
-from auth import AuthController, require, member_of, name_is
+from auth import AuthController, require, member_of, name_is, all_of, any_of
 import matplotlib.pyplot as plt
 from matplotlib import rc
 
@@ -1165,7 +1165,7 @@ class Case(object):
         raise cherrypy.HTTPRedirect("/object/%s/addlink" % uuid)
 
     @cherrypy.expose
-    @require(member_of("admin"))
+    @require(any_of(member_of("admin"),member_of("expert")))
     def train(self):
         session_context = cherrypy.session.get('session_context')
         try:
@@ -1293,7 +1293,9 @@ class Root(object):
     @cherrypy.expose
     @require(member_of("users"))
     def help(self, menu=None):
-        raise cherrypy.HTTPRedirect("/")
+        tmpl = lookup.get_template("help.html")
+        session_context = cherrypy.session.get('session_context')
+        return tmpl.render(session_context=session_context)
 
     @cherrypy.expose
     def open(self):
