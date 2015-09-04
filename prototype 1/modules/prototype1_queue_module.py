@@ -20,7 +20,7 @@ reload(sys)
 sys.setdefaultencoding("utf-8")
 
 app = celery.Celery('tasks', backend='rpc://', broker='amqp://guest@localhost//')
-
+celery.Celery.CELERY_DEFAULT_QUEUE = ''
 
 @app.task()
 def msg_delivery_for_user(uuid):

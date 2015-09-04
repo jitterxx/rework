@@ -1177,21 +1177,6 @@ class Case(object):
 
 
 class Root(object):
-    _cp_config = {
-        'tools.sessions.on': True,
-        'tools.auth.on': True
-    }
-    auth = AuthController()
-
-    restricted = RestrictedArea()
-
-    object = Any_object()
-    employee = Employee()
-    timeline = Timeline()
-    clients = Clients()
-    ktree = KTree()
-    account = Account()
-    cases = Case()
 
     @cherrypy.expose
     @require(member_of("users"))
@@ -1347,3 +1332,13 @@ cherrypy.config.update({
 
 if __name__ == '__main__':
     cherrypy.quickstart(Root(), '/', "app.config")
+    cherrypy.tree.mount(AuthController(), "/auth", "app.config")
+    cherrypy.tree.mount(Any_object(), "/object", "app.config")
+    cherrypy.tree.mount(Employee(), "/employee", "app.config")
+    cherrypy.tree.mount(Timeline(), "/timeline", "app.config")
+    cherrypy.tree.mount(Clients(), "/clients", "app.config")
+    cherrypy.tree.mount(KTree(), "/ktree", "app.config")
+    cherrypy.tree.mount(Account(), "/account", "app.config")
+    cherrypy.tree.mount(Case(), "/cases", "app.config")
+    cherrypy.engine.start()
+    cherrypy.engine.block()
