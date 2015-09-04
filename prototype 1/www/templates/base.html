@@ -32,6 +32,17 @@
     
     <%block name="footer"/>
 
+    <div class="modal" id="Help" tabindex="-1" role="dialog" aria-labelledby="helplabel">
+      <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+          <%block name="help"/>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-default" data-dismiss="modal">Закрыть</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
     <!-- Include all compiled plugins (below), or include individual files as needed -->

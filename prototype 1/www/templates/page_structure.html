@@ -23,7 +23,7 @@
       <ul class="nav navbar-nav navbar-right">
         <li><a href="/settings">Настройки</a></li>
         <li><a href="/object/${session_context['uuid']}">Профиль</a></li>
-        <li><a href="/help">Помощь</a></li>
+        <li><a href="/help?menu=${session_context['menu']}" >Помощь</a></li>
         <li><a href="/auth/logout">Выход</a></li>
       </ul>
     </div>
@@ -74,3 +74,4 @@
 
 <%block name="footer">
 </%block>
+
