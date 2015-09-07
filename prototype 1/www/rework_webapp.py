@@ -9,7 +9,7 @@ import sys
 
 reload(sys)
 sys.setdefaultencoding("utf-8")
-sys.path.append('/home/sergey/test/rework/prototype 1/modules')
+sys.path.append('../modules')
 
 import prototype1_objects_and_orm_mappings as rwObjects
 import prototype1_queue_module as rwQueue
@@ -1178,6 +1178,17 @@ class Case(object):
 
 class Root(object):
 
+    auth = AuthController()
+    restricted = RestrictedArea()
+
+    object = Any_object()
+    employee = Employee()
+    timeline = Timeline()
+    clients = Clients()
+    ktree = KTree()
+    account = Account()
+    cases = Case()
+
     @cherrypy.expose
     @require(member_of("users"))
     def index(self):
@@ -1332,13 +1343,4 @@ cherrypy.config.update({
 
 if __name__ == '__main__':
     cherrypy.quickstart(Root(), '/', "app.config")
-    cherrypy.tree.mount(AuthController(), "/auth", "app.config")
-    cherrypy.tree.mount(Any_object(), "/object", "app.config")
-    cherrypy.tree.mount(Employee(), "/employee", "app.config")
-    cherrypy.tree.mount(Timeline(), "/timeline", "app.config")
-    cherrypy.tree.mount(Clients(), "/clients", "app.config")
-    cherrypy.tree.mount(KTree(), "/ktree", "app.config")
-    cherrypy.tree.mount(Account(), "/account", "app.config")
-    cherrypy.tree.mount(Case(), "/cases", "app.config")
-    cherrypy.engine.start()
-    cherrypy.engine.block()
+

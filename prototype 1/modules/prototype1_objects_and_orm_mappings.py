@@ -35,7 +35,8 @@ sys.setdefaultencoding("utf-8")
 Constants
 """
 
-rwChannel_type = ["email", "facebook", "phone", "vk"]
+# rwChannel_type = ["email", "facebook", "phone", "vk"]
+rwChannel_type = ["email"]
 
 """
 Константа описывающая возможные типы каналов получения сообщений.
@@ -46,10 +47,6 @@ rwChannel_type = ["email", "facebook", "phone", "vk"]
 * Account
 
 """
-
-#LEARN_PATH = "learn_machine/"
-#mongo_uri = 'mongodb://localhost/rsa'
-#sql_uri = 'mysql://rework:HtdjhR123@localhost/rework?charset=utf8'
 
 STANDARD_OBJECTS_TYPES = ['accounts', 'employees', 'messages', 'cases']
 

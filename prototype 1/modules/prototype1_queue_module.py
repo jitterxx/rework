@@ -13,16 +13,23 @@ import prototype1_objects_and_orm_mappings as rwObjects
 import prototype1_email_module as rwEmail
 from datetime import timedelta, datetime
 import prototype1_type_classifiers as rwLearn
+from kombu import Exchange, Queue
+from configurations import *
 
 import sys
 
 reload(sys)
 sys.setdefaultencoding("utf-8")
 
-app = celery.Celery('tasks', backend='rpc://', broker='amqp://guest@localhost//')
-celery.Celery.CELERY_DEFAULT_QUEUE = ''
+celery.Celery.CELERY_QUEUES = (Queue(QUEUE_NAME, Exchange(QUEUE_NAME), routing_key=QUEUE_NAME))
+celery.Celery.CELERY_DEFAULT_QUEUE = QUEUE_NAME
+celery.Celery.CELERY_DEFAULT_EXCHANGE_TYPE = 'direct'
+celery.Celery.CELERY_DEFAULT_ROUTING_KEY = QUEUE_NAME
+celery.Celery.CELERY_ACCEPT_CONTENT = ['json', 'msgpack', 'yaml']
+app = celery.Celery('tasks_' + QUEUE_NAME, backend=QUEUE_BROKER_BACKEND, broker=QUEUE_BROKER)
 
-@app.task()
+
+@app.task(queue=QUEUE_NAME)
 def msg_delivery_for_user(uuid):
     session = rwObjects.Session()
     user = rwObjects.get_by_uuid(uuid)[0]
@@ -41,7 +48,7 @@ def msg_delivery_for_user(uuid):
         return "OK"
 
 
-@app.task()
+@app.task(queue=QUEUE_NAME)
 def get_messages_for_account(account_uuid):
     """
     Функция получает и записывает в базу сообщения по указанному аккаунту.
@@ -119,7 +126,7 @@ def get_messages_for_account(account_uuid):
     return "OK."
 
 
-@app.task()
+@app.task(queue=QUEUE_NAME)
 def apply_rules_for_1(source_uuid, source_type, target_uuid, target_type):
     """
     В момент появления связи "создания" между объектами проходит проверка автоматических правил.
@@ -289,7 +296,7 @@ def apply_rules_for_1(source_uuid, source_type, target_uuid, target_type):
     return "OK"
 
 
-@app.task()
+@app.task(queue=QUEUE_NAME)
 def apply_rules_for_0(source_uuid, source_type, target_uuid, target_type):
     """
     В момент появления связи между объектами проходит проверка правил.
