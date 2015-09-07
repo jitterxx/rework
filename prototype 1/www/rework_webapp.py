@@ -622,6 +622,8 @@ class Timeline(object):
             link = 1
             v[0] = "active"
 
+        print v
+
         tmpl = lookup.get_template("timeline.html")
         session_context = cherrypy.session.get('session_context')
         session_context['back_ref'] = '/timeline'
@@ -651,26 +653,27 @@ class Timeline(object):
             except Exception as e:
                 print e[0]
                 print e[1]
-                raise cherrypy.HTTPRedirect(session_context['back_ref'])
+                return ShowError(str(e))
             else:
                 if event.source_uuid not in actors.keys():
                     actors[event.source_uuid] = obj
-                    # print actors[event.source_uuid]
+                    print "Actor: %s" % actors[event.source_uuid].SHORT_VIEW_FIELDS
 
             try:
                 obj = rwObjects.get_by_uuid(event.target_uuid)[0]
             except Exception as e:
                 print e[0]
                 print e[1]
-                raise cherrypy.HTTPRedirect(session_context['back_ref'])
+                return ShowError(str(e))
             else:
                 if event.target_uuid not in actors.keys():
                     actors[event.target_uuid] = obj
-                    # print actors[event.target_uuid]
+                    print "Actor: %s" % actors[event.target_uuid].SHORT_VIEW_FIELDS
 
                     # print "events[0].get_fields() : %s" % fields
                     # print "obj_keys : %s " % obj_keys
-
+        print "All actors: %s" % actors.keys()
+        print "Соседи: %s" % neighbors
         return tmpl.render(obj=events, keys=obj_keys,
                            session_context=session_context,
                            all_f=fields[0], view_f=fields[1],
@@ -1333,13 +1336,7 @@ def get_session_context(login):
 
     return context
 
-
 cherrypy.config.update("server.config")
-cherrypy.config.update({
-    'tools.gzip.on': True,
-    'tools.sessions.on': True,
-    'tools.auth.on': True
-})
 
 if __name__ == '__main__':
     cherrypy.quickstart(Root(), '/', "app.config")
