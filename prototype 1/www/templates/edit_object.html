@@ -100,8 +100,10 @@
                                          % for d in obj.__dict__[key]:
                                                 ${obj.ACCESS_GROUPS[d]}<br>
                                          % endfor
+                                     % elif key == 'password':
+                                            <input type="password" value="${obj.__dict__[key]}" name=${key} />
                                      % else:
-                                     <input type="text" value="${obj.__dict__[key]}" name=${key} />
+                                        <input type="text" value="${obj.__dict__[key]}" name=${key} />
                                      % endif
 
                                  </td>
