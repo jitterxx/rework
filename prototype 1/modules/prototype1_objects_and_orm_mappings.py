@@ -36,7 +36,7 @@ Constants
 """
 
 # rwChannel_type = ["email", "facebook", "phone", "vk"]
-rwChannel_type = ["email"]
+rwChannel_type = ["email", "demo_toster"]
 
 """
 Константа описывающая возможные типы каналов получения сообщений.
@@ -52,7 +52,7 @@ STANDARD_OBJECTS_TYPES = ['accounts', 'employees', 'messages', 'cases']
 
 """
 Константа содержит список типов объектов (для всех классов кроме DynamicObjects это свойство __tablename__,
-для DynamicObjects - значение свойства objects_class)
+для DynamicObjects - значение свойства obj_type)
 которые автоматически линкуются к стандартным веткам ДЗ.
 
 Стандартные ветки ДЗ, в базе имеют заполненное поле
@@ -1135,9 +1135,10 @@ class DynamicObject(Base, rw_parent):
             for key in obj.keys():
                 self.__dict__[key] = obj[key]
                 self.ALL_FIELDS[key] = key
+                # print "%s : %s" % (key, obj[key])
             # print "\nВсе ключи ",self.__dict__.keys()
 
-            if self.obj_type == 'messages':
+            if self.channel_type == 'message':
                 view_f = ['from', 'to', 'cc', 'bcc', 'subject', 'raw_text_html']
                 self.NAME = 'Сообщение'
                 self.ALL_FIELDS['from'] = 'От кого'
@@ -1147,6 +1148,16 @@ class DynamicObject(Base, rw_parent):
                 self.ALL_FIELDS['subject'] = 'Тема'
                 self.ALL_FIELDS['raw_text_html'] = 'Текст'
                 self.SHORT_VIEW_FIELDS = ['from', 'to', 'subject']
+            elif self.channel_type == 'demo_toster':
+                view_f = ['title', 'raw_text_html', 'tags', 'href']
+                self.NAME = 'Demo сообщение'
+                self.ALL_FIELDS['title'] = 'Тема'
+                self.ALL_FIELDS['raw_text_html'] = 'Вопрос'
+                self.ALL_FIELDS['tags'] = 'Оригинальные теги'
+                self.ALL_FIELDS['href'] = 'Ссылка'
+                self.SHORT_VIEW_FIELDS = ['title', 'raw_text_html', 'tags']
+                tags = ", ".join(self.__dict__['tags'])
+                self.__dict__['tags'] = tags
 
             # Удаляем ключи не присутствующие в данном объекте
             for key in view_f:
@@ -1180,6 +1191,8 @@ class DynamicObject(Base, rw_parent):
          текстом.
 
         """
+        data = ""
+
         if 'raw_text_plain' in self.__dict__.keys():
             data = self.__dict__['raw_text_plain']
             # print "plain\n",data
@@ -1741,6 +1754,32 @@ def get_ktree_for_object(session,obj_uuid=None):
         pass
 
     return [custom_leafs,system_leafs]
+
+
+def get_demo_ktree(session):
+    """
+    Возвращает узел Навигатора Знаний с деио объектами.
+
+    :param session: Сессия ORM
+
+    :return: объект класса Ktree или None, если не найден.
+    """
+
+    try:
+        res = session.query(KnowledgeTree).all()
+    except Exception as e:
+        raise e
+    else:
+        pass
+
+    try:
+        for r in res:
+            if r.tags == 'demo':
+                return r
+    except Exception as e:
+        raise e
+
+    return None
 
 
 class Question(Base, rw_parent):

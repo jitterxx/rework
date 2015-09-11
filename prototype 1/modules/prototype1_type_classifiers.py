@@ -527,6 +527,7 @@ def check_conditions_for_classify():
         return [False,"Мало разделов в ДЗ. У вас %s, надо больше 2 или больше." % count]
 
     # Проверка количества объектов из FOR_CLASSIFY. Должно быть >= количеству разделов.
+    """
     try:
         obj_count = session.query(rwObjects.DynamicObject).\
             filter(rwObjects.DynamicObject.obj_type.in_(rwObjects.FOR_CLASSIFY)).count()
@@ -537,6 +538,17 @@ def check_conditions_for_classify():
 
     if obj_count < count:
         return [False,"Мало объектов для связи с ДЗ. У вас %s, надо больше %s." % (obj_count, count)]
+    """
+
+    # Получаем кастом узлы
+    custom_leafs = rwObjects.get_ktree_custom(session)
+    obj_count = 0
+    # Считаем для каждого количество связанных объектов, в каждом узле должен быть 1 или больше
+    for leaf in custom_leafs.values():
+        if leaf.get_category_objects_count(session) != 0:
+            obj_count += 1
+    if obj_count < 2:
+        return [False,"Как минимум к двум разделам Навигатора Знаний, необходимо привязать по одному сообщению."]
 
     session.close()
     return [True,"OK"]
@@ -679,9 +691,9 @@ def autoclassify_all_notlinked_objects():
             obj = rwObjects.get_by_uuid(obj.uuid)[0]
 
             obj.clear_text()
-            #print str(obj.text_plain)
+            #print str(obj.text_clear)
             try:
-                probe, Z = predict(rwObjects.default_classifier, [obj.text_plain])
+                probe, Z = predict(rwObjects.default_classifier, [obj.text_clear])
             except Exception as e:
                 raise e
             else:

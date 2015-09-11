@@ -220,7 +220,6 @@ def get_emails(account):
                     print 'HTML:',msg_data['raw_text_html']
                     print 'TEXT:',msg_data['text_html']
             
-            
             if broken and debug:
                 print 'Broken encoding. Skip message.'
             else:
