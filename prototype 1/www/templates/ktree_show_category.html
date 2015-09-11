@@ -54,7 +54,7 @@
                         % endfor
 
                         % for cat in auto_cats[node.uuid]:
-                            <span class="label label-warning">${cats_name[cat[1]].name} - ${"{0:.1%}".format(float(cat[0]))}</span>
+                            <span class="label label-warning">${cats_name[cat[1]].name} - ${cat[0][0:5]}</span>
                         % endfor
                     </div>
                 </div>

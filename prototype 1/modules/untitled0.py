@@ -32,12 +32,14 @@ sys.setdefaultencoding("utf-8")
 
 
 session = rwObjects.Session()
+superuser = rwObjects.get_by_uuid('4b0b843e-5546-11e5-a199-f46d04d35cbd')[0]
+test_text = rwObjects.get_by_uuid('ce09e362-5875-11e5-9113-f46d04d35cbd')[0]
+test_text.read(session)
+test_text.clear_text()
 
-obj = rwObjects.get_by_uuid('152d31a4-5222-11e5-8d57-f46d04d35cbd')[0]
-obj.clear_text()
-nbr = rwLearn.predict_neighbors(rwObjects.default_neighbors_classifier, [obj.__dict__['text_clear']])
-
-
+p, z = rwLearn.predict(rwObjects.default_classifier, [test_text.text_clear])
+print 'Proba: ', p
+print 'Labels: ', z
 
 
 session.close()

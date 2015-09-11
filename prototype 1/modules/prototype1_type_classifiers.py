@@ -46,6 +46,9 @@ import base64
 from sklearn.externals import joblib
 import sqlalchemy
 import operator
+from sklearn.datasets import make_multilabel_classification
+from sklearn.multiclass import OneVsRestClassifier
+from sklearn.preprocessing import MultiLabelBinarizer
 
 
 import sys
@@ -280,6 +283,9 @@ def init_classifier(session,clf_obj,clf_type):
     elif clf_type == "svc":
         clf_obj.clf_type = 'svc'
         clf = svm.SVC(kernel='linear', C=1.0, probability=True)
+    elif clf_type == "multilabel":
+        clf_obj.clf_type = 'multilabel'
+        clf = OneVsRestClassifier(svm.SVC(kernel='linear', probability=True))
     elif clf_type == "nbrs":
         clf_obj.clf_type = 'nbrs'
         clf = NearestNeighbors(n_neighbors=3, algorithm='ball_tree')
@@ -301,7 +307,7 @@ def init_classifier(session,clf_obj,clf_type):
     return status,clf_obj
 
 
-def fit_classifier(clf_uuid,texts,answers):
+def fit_classifier(clf_uuid, texts, answers):
     """
     Переобучение классификатора при неверной классификации.
     Периодическое переобучение.
@@ -331,14 +337,12 @@ def fit_classifier(clf_uuid,texts,answers):
 
     vectorizer = TfidfVectorizer(tokenizer=tokenizer_3)
     print "\nГотовим обучающий набор текстов."
-    #dataset = pd.DataFrame(texts)
     dataset = texts
-    print len(dataset)
 
     print "\nГотовим обучающий набор ответов для текстов."
-    #targets = pd.Series(answers)
-    targets = answers
-    print targets
+    # готовим матрицу множественных категорий
+    multilabel = MultiLabelBinarizer().fit(answers)
+    targets = multilabel.transform(answers)
 
     print "\nГотовим матрицу векторов ..."
     v = vectorizer.fit(dataset)
@@ -357,7 +361,7 @@ def fit_classifier(clf_uuid,texts,answers):
 
     print "\nОбучаем классификатор..."
     clf.fit(V,targets)
-    CL.targets = ','.join(clf.classes_)
+    CL.targets = ','.join(multilabel.classes_)
 
     try:
         print "\nСохраняем классификатор в файл..."
@@ -378,7 +382,7 @@ def fit_classifier(clf_uuid,texts,answers):
     return s
 
 
-def predict(clf_uuid,dataset):
+def predict(clf_uuid, dataset):
     u"""
     Вызов классификатора.
     Возвращает категорию.
@@ -564,10 +568,10 @@ def retrain_classifier(session,clf_uuid):
 
     status = check_conditions_for_classify()
     if not status[0]:
-        raise Exception("Не соблюдены условия для тренировки."+status[1])
+        raise Exception("Не соблюдены условия для тренировки." + status[1])
 
     # Готовим данные для тренировки. Делаем выборку из Reference с типами из FOR_CLASSIFY привязанных к custom веткам
-    #  ДЗ.
+    # ДЗ.
     # Отбираем кастом ветки
     custom = rwObjects.get_ktree_custom(session)
     print custom
@@ -606,13 +610,17 @@ def retrain_classifier(session,clf_uuid):
     for r in res:
         obj = rwObjects.get_by_uuid(r.target_uuid)[0]
         obj.clear_text()
-        keys.append(r.target_uuid)
-        dataset.append(obj.text_clear)
-        targets.append(r.source_uuid)
-        print "Объект: ",r.target_uuid
-        print "Текст длина в признаках: ",obj.text_clear
-        print "Категория",r.source_uuid
-        print ""
+        if r.target_uuid in keys:
+            print "Объект уже обработан."
+        else:
+            tags = rwObjects.get_ktree_for_object(session, r.target_uuid)[0]
+            keys.append(r.target_uuid)
+            dataset.append(obj.text_clear)
+            targets.append(tags.keys())
+            print "Объект: ",r.target_uuid
+            #print "Текст длина в признаках: ",obj.text_clear
+            print "Категория :", tags.keys()
+            print ""
 
     print "Dataset len :",len(dataset)
     print "Key len :",len(keys)
@@ -885,3 +893,36 @@ def predict_neighbors(clf_uuid,dataset):
     session.close()
 
     return sorted_nbrs
+
+
+def multilable_test():
+    from sklearn.datasets import make_multilabel_classification
+    from sklearn.multiclass import OneVsRestClassifier
+    from sklearn.svm import SVC
+    from sklearn.preprocessing import MultiLabelBinarizer
+
+    x_test = [[100,100,100]]
+
+    x = [[1,3,5], [3,2,6], [3, 4, 6]]
+    y = [['first'],['first','second'],['theird']]
+    m = MultiLabelBinarizer().fit(y)
+    Y = m.transform(y)
+    print m.classes_
+    print x
+    print Y
+    classif = OneVsRestClassifier(SVC(kernel='linear', probability=True))
+    classif.fit(x, Y)
+    print "classif.multilabel_ = ",classif.multilabel_
+    print classif.predict(x_test)
+    print (1-classif.predict_proba(x_test)[0])
+
+    print "\n Non multilable:"
+    x = [[1,3,5], [3,2,6], [3,2,6], [3, 4, 6]]
+    y = ['first','first','second','theird']
+    print x
+    print y
+    classif = SVC(kernel='linear', probability=True)
+    classif.fit(x, y)
+    print classif.classes_
+    print classif.predict(x_test)
+    print 1-classif.predict_proba(x_test)[0]

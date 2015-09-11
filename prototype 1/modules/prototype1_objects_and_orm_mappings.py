@@ -1155,7 +1155,7 @@ class DynamicObject(Base, rw_parent):
                 self.ALL_FIELDS['raw_text_html'] = 'Вопрос'
                 self.ALL_FIELDS['tags'] = 'Оригинальные теги'
                 self.ALL_FIELDS['href'] = 'Ссылка'
-                self.SHORT_VIEW_FIELDS = ['title', 'raw_text_html', 'tags']
+                self.SHORT_VIEW_FIELDS = ['title', 'tags']
                 tags = ", ".join(self.__dict__['tags'])
                 self.__dict__['tags'] = tags
 
