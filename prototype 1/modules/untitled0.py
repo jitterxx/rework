@@ -34,12 +34,32 @@ sys.setdefaultencoding("utf-8")
 session = rwObjects.Session()
 superuser = rwObjects.get_by_uuid('4b0b843e-5546-11e5-a199-f46d04d35cbd')[0]
 test_text = rwObjects.get_by_uuid('ce09e362-5875-11e5-9113-f46d04d35cbd')[0]
+
+rwLearn.retrain_classifier(session, rwObjects.default_classifier)
+
+"""
 test_text.read(session)
 test_text.clear_text()
+print "Текст: %s" % test_text.text_clear
+print "Оригинальные теги: %s\n" % test_text.__dict__['tags']
+cl = rwObjects.get_by_uuid(rwObjects.default_classifier)[0]
+targets = re.split(",",cl.targets)
+custom = rwObjects.get_ktree_custom(session)
 
 p, z = rwLearn.predict(rwObjects.default_classifier, [test_text.text_clear])
-print 'Proba: ', p
-print 'Labels: ', z
+if z.any() != 1:
+    print "Нет точно определенных элементов.\n"
+    pp = 0
+else:
+    print "Есть точные данные:"
+    pp = 1
 
+for i in range(0,len(z)):
+    if z[i] == pp and p[i] > 0.50:
+        print targets[i]
+        print "Вероятность: %s" % p[i]
+        print custom[targets[i]].name
+"""
 
+rwLearn.autoclassify_all_notlinked_objects()
 session.close()

@@ -10,6 +10,7 @@ Created on Thu Jul 30 15:47:43 2015
 from bs4 import BeautifulSoup
 from urllib2 import urlopen
 import prototype1_objects_and_orm_mappings as rwObjects
+import prototype1_type_classifiers as rwLearn
 
 
 import sys
@@ -44,7 +45,7 @@ else:
 raise Exception("СОздан раздел.")
 """
 
-for j in [2,3,4,5]:
+for j in range(10,15):
     print "Обработка старницы %s" % j
     html_doc = urlopen(SITE_URL % j).read()
     soup = BeautifulSoup(html_doc)
@@ -138,6 +139,6 @@ def get_demo_and_prepare_for_classification(session, tags, account):
 
 # Получить новые данные, добавить в систему и создать разделы Навигатора
 get_demo_and_prepare_for_classification(session, tags, account)
-
+rwLearn.retrain_classifier(session, rwObjects.default_classifier)
 
 session.close()

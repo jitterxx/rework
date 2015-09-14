@@ -333,18 +333,21 @@ def fit_classifier(clf_uuid, texts, answers):
     else:
         print "\nКлассификатор загружен."
         clf = joblib.load(CL.clf_path)
-        print clf.get_params
+        print "Параметры классификатора: %s" % clf.get_params
 
-    vectorizer = TfidfVectorizer(tokenizer=tokenizer_3)
+    vectorizer = TfidfVectorizer(tokenizer=tokenizer_3, max_features=200)
     print "\nГотовим обучающий набор текстов."
     dataset = texts
 
     print "\nГотовим обучающий набор ответов для текстов."
     # готовим матрицу множественных категорий
     multilabel = MultiLabelBinarizer().fit(answers)
+    # print "Параметры матрицы ответов: %s" % multilabel.classes_
     targets = multilabel.transform(answers)
+    print "Количество ответов для образцов: %s" % len(targets)
 
-    print "\nГотовим матрицу векторов ..."
+
+    print "\nГотовим матрицу векторов из текстов..."
     v = vectorizer.fit(dataset)
 
     print "\nСохраняем матрицу векторов."
@@ -352,6 +355,7 @@ def fit_classifier(clf_uuid, texts, answers):
 
     print "\nТрансформируем набор текстов для обучения."
     v = v.transform(dataset)
+    print "\nРазмеры матрицы векторов примеров обучения: %s %s" %  v.shape
     V = v.todense()
     
     #terms = vectorizer.get_feature_names()
@@ -397,7 +401,7 @@ def predict(clf_uuid, dataset):
         print "Классификатор не найден. "
         raise e
     else:
-        print "Классификатор загружен."        
+        print "Классификатор загружен."
 
     try:
         clf = joblib.load(CL.clf_path)
@@ -405,6 +409,7 @@ def predict(clf_uuid, dataset):
         print "Ошибка чтения файла классификатора %s" % CL.clf_path
         raise e
     else:
+        #print clf.get_params()
         pass
 
     try:
@@ -423,7 +428,7 @@ def predict(clf_uuid, dataset):
     #print "Что-тО : %s" % clf.classes_
 
     session.close()
-    return proba,Z
+    return proba[0],Z[0]
     
 
 def test():
@@ -574,12 +579,13 @@ def retrain_classifier(session,clf_uuid):
     # ДЗ.
     # Отбираем кастом ветки
     custom = rwObjects.get_ktree_custom(session)
-    print custom
+    # print custom
     custom_uuid = custom.keys()
 
     print "Custom ветки ДЗ: "
     for i in custom.values():
         print i.name
+    print "Количество разделов Навигатора: %s " % len(custom.keys())
 
     # Делаем выборку всех DynamicObjects
     objects = list()
@@ -611,16 +617,17 @@ def retrain_classifier(session,clf_uuid):
         obj = rwObjects.get_by_uuid(r.target_uuid)[0]
         obj.clear_text()
         if r.target_uuid in keys:
-            print "Объект уже обработан."
+            pass
+            # print "Объект уже обработан."
         else:
             tags = rwObjects.get_ktree_for_object(session, r.target_uuid)[0]
             keys.append(r.target_uuid)
             dataset.append(obj.text_clear)
             targets.append(tags.keys())
-            print "Объект: ",r.target_uuid
-            #print "Текст длина в признаках: ",obj.text_clear
-            print "Категория :", tags.keys()
-            print ""
+            # print "Объект: ",r.target_uuid
+            # print "Текст длина в признаках: ",obj.text_clear
+            # print "Категория :", tags.keys()
+            # print ""
 
     print "Dataset len :",len(dataset)
     print "Key len :",len(keys)
@@ -689,11 +696,13 @@ def autoclassify_all_notlinked_objects():
     # Ищем все сообщения, их них отбираем только те которые не имеют связей с custom
     # т.е. имею пустое свойство self.__dict__['custom_category']
     session = rwObjects.Session()
+    cl = rwObjects.get_by_uuid(rwObjects.default_classifier)[0]
+    targets = re.split(",",cl.targets)
     resp = session.query(rwObjects.DynamicObject).all()
     for obj in resp:
         obj.read(session)
-        print obj.uuid
-        print obj.__dict__['custom_category']
+        #print obj.uuid
+        #print obj.__dict__['custom_category']
         if not obj.__dict__['custom_category'] and obj.obj_type in rwObjects.FOR_CLASSIFY:
             print "-------- Классифицируем объект : %s ---------" % obj.uuid
             obj = rwObjects.get_by_uuid(obj.uuid)[0]
@@ -706,13 +715,19 @@ def autoclassify_all_notlinked_objects():
                 raise e
             else:
                 pass
-            print 'Вероятности : %s' % probe
-            categories = rwObjects.get_ktree_custom(session)
-            print 'Категория : %s' % categories[Z[0]].name
+            th = 0.2
+            print "Отсечка вероятности: > %s процентов" % (th*100)
+            if probe.any() >= th:
+                categories = rwObjects.get_ktree_custom(session)
+                for i in range(0,len(Z)):
+                    if Z[i] == 1 or probe[i] >= th:
+                        print 'Категория : %s' % categories[targets[i]].name
+                        print "Вероятность: %s" % probe[i]
+
             print "--------------Классификация закончена.------------------"
 
             # Сохраняем результаты классификации
-            status = save_classification_result(session,obj.uuid,rwObjects.default_classifier,probe)
+            status = save_classification_result(session, obj.uuid, rwObjects.default_classifier, [probe])
             if status[0]:
                 print "Данные классификации сохранены."
             else:
