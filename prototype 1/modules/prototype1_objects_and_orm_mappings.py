@@ -1458,9 +1458,9 @@ class ClassificationResult(Base, rw_parent):
     uuid = Column(sqlalchemy.String(50), default=uuid.uuid1())
     clf_uuid = Column(sqlalchemy.String(256))
     target_uuid = Column(sqlalchemy.String(256))
-    probe = Column(sqlalchemy.String(256))
-    categories = Column(sqlalchemy.TEXT())
-    status = Column(sqlalchemy.String(256))
+    probe = Column(sqlalchemy.TEXT(), default="")
+    categories = Column(sqlalchemy.TEXT(), default="")
+    status = Column(sqlalchemy.String(256), default="")
 
     def __init__(self):
         self.uuid = uuid.uuid1()
@@ -1478,7 +1478,7 @@ class ClassificationResult(Base, rw_parent):
         for i in xrange(len(probes)):
             result.append([probes[i],cats[i]])
 
-        print "Before sort : %s" % result
+        #print "Before sort : %s" % result
         sort = sorted(result,key=operator.itemgetter(0),reverse=True)
 
         return sort

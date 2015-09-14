@@ -905,6 +905,7 @@ class ShowKTreeCategory(object):
         for node in nodes:
             auto_cats[node.uuid] = rwObjects.get_classification_results(session, node.uuid)
             # print "Автоклассификация : %s" % auto_cats[node.uuid]
+        auto_cats = sorted(auto_cats, key=auto_cats.get, reverse=True)
 
         return tmpl.render(obj=leaf, session=session, name=leaf.name,
                            nodes=nodes, session_context=session_context,

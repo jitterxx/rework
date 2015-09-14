@@ -278,15 +278,15 @@ def apply_rules_for_1(source_uuid, source_type, target_uuid, target_type):
         obj = rwObjects.get_by_uuid(target_uuid)[0]
         clf_uuid = rwObjects.default_classifier
         obj.clear_text()
-        print str(obj.text_plain)
-        probe, Z = rwLearn.predict(clf_uuid, [obj.text_plain])
-        print 'Вероятности : %s' % probe
-        categories = rwObjects.get_ktree_custom(session)
-        print 'Категория : %s' % categories[Z[0]].name
+        print str(obj.text_clear)
+        probe, Z = rwLearn.predict(clf_uuid, [obj.text_clear])
+        #print 'Вероятности : %s' % probe
+        #categories = rwObjects.get_ktree_custom(session)
+        #print 'Категория : %s' % categories[Z[0]].name
         print "--------------Классификация закончена.------------------"
 
         # Сохраняем результаты классификации
-        status = rwLearn.save_classification_result(session,target_uuid,clf_uuid,probe)
+        status = rwLearn.save_classification_result(session,target_uuid,clf_uuid,[probe])
         if status[0]:
             print "Данные классификации сохранены."
         else:

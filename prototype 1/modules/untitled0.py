@@ -33,11 +33,10 @@ sys.setdefaultencoding("utf-8")
 
 session = rwObjects.Session()
 superuser = rwObjects.get_by_uuid('4b0b843e-5546-11e5-a199-f46d04d35cbd')[0]
-test_text = rwObjects.get_by_uuid('ce09e362-5875-11e5-9113-f46d04d35cbd')[0]
+test_text = rwObjects.get_by_uuid('f47276ae-5af5-11e5-abb5-f46d04d35cbd')[0]
 
-rwLearn.retrain_classifier(session, rwObjects.default_classifier)
+#rwLearn.retrain_classifier(session, rwObjects.default_classifier)
 
-"""
 test_text.read(session)
 test_text.clear_text()
 print "Текст: %s" % test_text.text_clear
@@ -59,7 +58,11 @@ for i in range(0,len(z)):
         print targets[i]
         print "Вероятность: %s" % p[i]
         print custom[targets[i]].name
+
+
+get_classification_results(session, "")
 """
 
 rwLearn.autoclassify_all_notlinked_objects()
+"""
 session.close()

@@ -335,7 +335,7 @@ def fit_classifier(clf_uuid, texts, answers):
         clf = joblib.load(CL.clf_path)
         print "Параметры классификатора: %s" % clf.get_params
 
-    vectorizer = TfidfVectorizer(tokenizer=tokenizer_3, max_features=200)
+    vectorizer = TfidfVectorizer(tokenizer=tokenizer_3, max_df=0.75, min_df=5, stop_words='english')
     print "\nГотовим обучающий набор текстов."
     dataset = texts
 
@@ -420,6 +420,7 @@ def predict(clf_uuid, dataset):
     else:
         pass
 
+    print "\n".join(v.get_feature_names())
     v = v.transform(dataset)
     V = v.todense()    
     Z = clf.predict(V)
@@ -661,7 +662,7 @@ def save_classification_result(session,target_uuid,clf_uuid,probe):
     print "Запоняем объект результатов."
     result.clf_uuid = clf_uuid
     result.target_uuid = target_uuid
-    result.probe = ",".join(map(str,probe[0]))
+    result.probe = ",".join(map(str, probe[0]))
     result.status = "new"
 
     try:
