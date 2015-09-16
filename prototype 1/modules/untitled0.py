@@ -35,7 +35,8 @@ session = rwObjects.Session()
 
 obj = rwObjects.get_by_uuid('152d31a4-5222-11e5-8d57-f46d04d35cbd')[0]
 obj.clear_text()
-nbr = rwLearn.predict_neighbors(rwObjects.default_neighbors_classifier, [obj.__dict__['text_clear']])
+
+
 
 
 

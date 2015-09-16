@@ -662,8 +662,7 @@ class Timeline(object):
             try:
                 obj = rwObjects.get_by_uuid(event.target_uuid)[0]
             except Exception as e:
-                print e[0]
-                print e[1]
+                print e
                 return ShowError(str(e))
             else:
                 if event.target_uuid not in actors.keys():

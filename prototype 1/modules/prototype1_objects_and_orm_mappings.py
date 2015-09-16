@@ -1138,7 +1138,7 @@ class DynamicObject(Base, rw_parent):
                 # print "%s : %s" % (key, obj[key])
             # print "\nВсе ключи ",self.__dict__.keys()
 
-            if self.channel_type == 'message':
+            if self.channel_type == 'email':
                 view_f = ['from', 'to', 'cc', 'bcc', 'subject', 'raw_text_html']
                 self.NAME = 'Сообщение'
                 self.ALL_FIELDS['from'] = 'От кого'
@@ -1904,7 +1904,7 @@ def get_by_uuid(uuid):
     if not status[0] and not bool(obj_class):
         status[0] = False
         status[1] = "Нет класса для этого объекта. " + str(e)
-        raise Exception(status[0], status[1])
+        raise Exception(status[1])
 
     # print "obj_class :",obj_class
 
@@ -1917,7 +1917,7 @@ def get_by_uuid(uuid):
         # print e
         status[0] = False
         status[1] = "Нет объекта в References." + str(e)
-        raise Exception(status[0], status[1])
+        raise Exception(status[1])
         # print "нет объекта"
     else:
         # print query
@@ -1935,7 +1935,7 @@ def get_by_uuid(uuid):
     except sqlalchemy.orm.exc.NoResultFound as e:
         status[0] = False
         status[1] = "Не могу найти объект в базе." + str(e)
-        raise Exception(status[0], status[1])
+        raise Exception(status[1])
     else:
         pass
         obj.read(session)
