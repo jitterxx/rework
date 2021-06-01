@@ -32,5 +32,5 @@ scipy==0.13.3
 six==1.9.0
 SQLAlchemy==1.0.8
 tornado==4.2.1
-urllib3==1.11
+urllib3==1.26.5
 wheel==0.24.0
