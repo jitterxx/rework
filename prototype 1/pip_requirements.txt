@@ -3,7 +3,7 @@ anyjson==0.3.3
 backports.ssl-match-hostname==3.4.0.2
 beautifulsoup4==4.4.0
 billiard==3.3.0.20
-celery==3.1.18
+celery==5.2.2
 certifi==2015.4.28
 chardet==2.3.0
 CherryPy==3.8.0
