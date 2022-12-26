@@ -33,4 +33,4 @@ six==1.9.0
 SQLAlchemy==1.0.8
 tornado==4.2.1
 urllib3==1.11
-wheel==0.24.0
+wheel==0.38.1
